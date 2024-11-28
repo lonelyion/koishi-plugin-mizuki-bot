@@ -14,7 +14,7 @@ const logger = new Logger('mizuki-bot');
 
 declare module 'koishi' {
   interface Events {
-    'mizuki/resource_update'(...args: any[]): void
+    'mizuki/resource_update'(...args: string[]): void
   }
 }
 
@@ -54,12 +54,16 @@ export function apply(ctx: Context) {
       fs.writeFile(local_version_file, '0', { encoding: 'utf-8' });
     });
 
-    ctx.http.get(`${cdn}/version.txt`).then(res => {
-      logger.info(`当前本地资源版本： ${local_version}, 最新: ${res}`);
-      if ((Number(res) > Number(local_version))) {
-        ctx.emit('mizuki/resource_update', res);
-      }
-    });
+    ctx.http.get(`${cdn}/version.txt`)
+      .then(res => {
+        logger.info(`当前本地资源版本： ${local_version}, 最新: ${res}`);
+        if ((Number(res) > Number(local_version))) {
+          ctx.emit('mizuki/resource_update', res);
+        }
+      })
+      .catch(err => {
+        logger.error(`读取服务器版本失败`, err.message);
+      });
   });
 
   ctx.on('mizuki/resource_update', (version: string) => {
@@ -91,8 +95,7 @@ export function apply(ctx: Context) {
   
   ctx.command('水母箱')
   .action(async ({ session }) => {
-    let result = await command_jellyfish_box(ctx.config, ctx, session);
-    return result;
+    return await command_jellyfish_box(ctx.config, ctx, session);
   });
 
   ctx.command('水母箱.抓水母').alias('抓水母').action(async (_, message) => message);

@@ -16,5 +16,10 @@
   ],
   "peerDependencies": {
     "koishi": "^4.18.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.15.0",
+    "globals": "^15.12.0",
+    "typescript-eslint": "^8.16.0"
   }
 }

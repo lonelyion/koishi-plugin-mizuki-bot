@@ -1,7 +1,7 @@
 import { Config } from "..";
 import { Context, Logger, Session } from "koishi";
 import { JellyfishBox } from "../database";
-import { paresMessageList } from "../utils";
+//import { paresMessageList } from "../utils";
 
 const logger = new Logger('mizuki-bot-jellyfish');
 
@@ -26,7 +26,7 @@ export async function command_jellyfish_box(config: Config, ctx: Context, sessio
     }));
   }
 
-  let jellyfish_box = query[0];
+  const jellyfish_box = query[0];
   let refresh = false;
   let refresh_time = 0;
 
