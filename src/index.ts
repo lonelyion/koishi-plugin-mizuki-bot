@@ -1,6 +1,6 @@
 import { Context, Logger, Schema } from 'koishi';
 import * as Database from './database';
-import { command_jellyfish_box, command_jellyfish_box_catch } from './commands/jellyfish_box';
+import { CommandJellyfishBox, CommandJellyfishBoxCatch } from './commands/jellyfish_box';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import axios from 'axios';
@@ -90,19 +90,20 @@ export function apply(ctx: Context) {
     await fs.writeFile(local_version_file, version, { encoding: 'utf-8' });
     // 读取 data/jellyfish.json
     await ctx.database.remove('mzk_jellyfish_meta', {});
-    await fs.readFile(path.join(root, 'data', 'jellyfish.json'), { encoding: 'utf-8' }).then(async res => {
-      const meta = JSON.parse(res);
-      await ctx.model.upsert('mzk_jellyfish_meta', () => meta.jellyfishes);
-    }); 
-    logger.debug('已更新 mzk_jellyfish_meta');
+    await ctx.database.remove('mzk_jellyfish_event_meta', {});
+    const json = await fs.readFile(path.join(root, 'data', 'jellyfish.json'), { encoding: 'utf-8' });
+    const meta = JSON.parse(json);
+    await ctx.model.upsert('mzk_jellyfish_meta', () => meta.jellyfishes);
+    await ctx.model.upsert('mzk_jellyfish_event_meta', () => meta.events);
+    logger.info('已更新 mzk_jellyfish_meta和mzk_jellyfish_event_meta');
   });
 
   ctx.command('水母箱')
     .action(async ({ session }) => {
-      return await command_jellyfish_box(ctx.config, ctx, session);
+      return await CommandJellyfishBox(ctx.config, ctx, session);
     });
 
   ctx.command('水母箱.抓水母').alias('抓水母').action(async ({ session }) => {
-    return await command_jellyfish_box_catch(ctx.config, ctx, session);
+    return await CommandJellyfishBoxCatch(ctx.config, ctx, session);
   });
 };

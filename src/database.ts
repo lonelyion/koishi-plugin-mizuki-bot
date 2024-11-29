@@ -3,7 +3,8 @@ import { Context } from 'koishi';
 declare module 'koishi' {
   interface Tables {
     mzk_jellyfish_box: JellyfishBox,
-    mzk_jellyfish_meta: JellyfishMeta
+    mzk_jellyfish_meta: JellyfishMeta,
+    mzk_jellyfish_event_meta: EventMeta
   }
 }
 
@@ -44,6 +45,18 @@ export interface JellyfishMeta {
   }
 }
 
+export interface EventMeta {
+  id: string,
+  name: string,
+  description: string,
+  type: string,
+  probability: number,
+  relation: {
+    jellyfish: string[],
+    medal: string[],
+  }
+}
+
 export const name = 'Database';
 
 export function apply(ctx: Context) {
@@ -70,5 +83,14 @@ export function apply(ctx: Context) {
     living_location: 'json',
     protected: 'boolean',
     draw: 'json'
+  });
+
+  ctx.model.extend('mzk_jellyfish_event_meta', {
+    id: 'string',
+    name: 'string',
+    description: 'string',
+    type: 'string',
+    probability: 'double',
+    relation: 'json'
   });
 }
