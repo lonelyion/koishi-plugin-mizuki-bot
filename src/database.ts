@@ -1,13 +1,14 @@
-import { Context } from "koishi"
+import { Context } from 'koishi';
 
 declare module 'koishi' {
   interface Tables {
     mzk_jellyfish_box: JellyfishBox,
+    mzk_jellyfish_meta: JellyfishMeta
   }
 }
 
 export interface Jellyfish {
-  jelly_id: string,
+  id: string,
   number: number
 }
 
@@ -28,7 +29,22 @@ export interface JellyfishBox {
   draw_style: 'normal' | 'other',
 }
 
-export const name = 'Database'
+export interface JellyfishMeta {
+  id: string,
+  name: string,
+  group: string,
+  description: string,
+  reproductive_rate: number,
+  living_location: string[],
+  protected: boolean,
+  draw: {
+    size: number,
+    bounce: boolean,
+    speed: 'slow' | 'normal' | 'fast',
+  }
+}
+
+export const name = 'Database';
 
 export function apply(ctx: Context) {
   // mzk_jellyfish_box
@@ -44,4 +60,15 @@ export function apply(ctx: Context) {
     temperature: 'double',
     draw_style: 'string'
   }, { autoInc: true });
+
+  ctx.model.extend('mzk_jellyfish_meta', {
+    id: 'string',
+    name: 'string',
+    group: 'string',
+    description: 'string',
+    reproductive_rate: 'double',
+    living_location: 'json',
+    protected: 'boolean',
+    draw: 'json'
+  });
 }
