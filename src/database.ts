@@ -14,7 +14,7 @@ export interface Jellyfish {
 }
 
 export interface Decoration {
-  deco_id: string,
+  deco_id: string,  //27
 }
 
 export interface JellyfishBox {

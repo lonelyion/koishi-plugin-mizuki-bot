@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@ltxhhz/koishi-plugin-skia-canvas": "^0.0.8",
     "@types/lodash": "^4",
     "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.15.0",
@@ -27,8 +28,7 @@
   },
   "dependencies": {
     "axios": "^1.7.8",
-    "lodash": "^4.17.21",
-    "skia-canvas": "^1.0.2"
+    "lodash": "^4.17.21"
   },
   "config": {
     "commitizen": {

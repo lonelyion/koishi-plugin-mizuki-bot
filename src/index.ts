@@ -1,13 +1,14 @@
 import { Context, Logger, Schema } from 'koishi';
 import * as Database from './database';
-import { CommandJellyfishBox, CommandJellyfishBoxCatch } from './commands/jellyfish_box';
+import { CommandJellyfishBox, CommandJellyfishBoxCatch, CommandJellyfishBoxDrop } from './commands/jellyfish_box';
+import { CommandTest } from './commands/test';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import axios from 'axios';
-
 export const name = 'mizuki-bot';
+
 export const inject = {
-  required: ['database', 'http']
+  required: ['database', 'http', 'skia']
   //optional: ['assets'],
 };
 
@@ -18,7 +19,6 @@ declare module 'koishi' {
     'mizuki/resource_update'(...args: string[]): void
   }
 };
-
 
 export interface Config {
   remote: string,
@@ -105,5 +105,17 @@ export function apply(ctx: Context) {
 
   ctx.command('水母箱.抓水母').alias('抓水母').action(async ({ session }) => {
     return await CommandJellyfishBoxCatch(ctx.config, ctx, session);
+  });
+
+  ctx.command('水母箱.放生 <kind:string> [...rest]').alias('放生')
+    .usage('请添加水母名称以及数量')
+    .example('水母箱 放生 灯塔水母 all')
+    .example('水母箱 放生 normal 10')
+    .action(async ({ session }, kind , ...rest) => {
+      return await CommandJellyfishBoxDrop(ctx.config, ctx, session, [kind, ...rest]);
+    });
+
+  ctx.command('测试').alias('a').action(async ({ session }) => {
+    return await CommandTest(ctx.config, ctx, session);
   });
 };
