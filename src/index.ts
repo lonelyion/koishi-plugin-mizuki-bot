@@ -95,7 +95,23 @@ export function apply(ctx: Context) {
     const meta = JSON.parse(json);
     await ctx.model.upsert('mzk_jellyfish_meta', () => meta.jellyfishes);
     await ctx.model.upsert('mzk_jellyfish_event_meta', () => meta.events);
-    logger.info('已更新 mzk_jellyfish_meta和mzk_jellyfish_event_meta');
+
+    // 清除用户水母箱中现在已经不存在的水母id
+    const jellyfish_boxes = await ctx.database.get('mzk_jellyfish_box', {});
+    for (let i = 0; i < jellyfish_boxes.length; i++) {
+      const jellyfish_box = jellyfish_boxes[i];
+      const new_jellyfish = jellyfish_box.jellyfish.filter((jellyfish) => {
+        return meta.jellyfishes.some((meta_jellyfish) => {
+          return meta_jellyfish.id === jellyfish.id;
+        });
+      });
+      jellyfish_box.jellyfish = new_jellyfish;
+      await ctx.database.set('mzk_jellyfish_box', { id: jellyfish_box.id }, {
+        jellyfish: jellyfish_box.jellyfish
+      });
+    }
+
+    logger.info('已更新水母箱数据库');
   });
 
   ctx.command('水母箱')

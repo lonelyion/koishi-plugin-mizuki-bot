@@ -12,7 +12,7 @@ const DrawJellyfishBox = async (ctx: Context, jellyfish_box: JellyfishBox) => {
   return;
 };
 
-const GetJellyfishBox = async (ctx: Context, id: string, platform: string) => {
+export const GetJellyfishBox = async (ctx: Context, id: string, platform: string) => {
   let query: JellyfishBox[] = [];
   query = await ctx.database.get('mzk_jellyfish_box', {
     user_id: id,
