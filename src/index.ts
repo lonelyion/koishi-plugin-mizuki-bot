@@ -21,6 +21,31 @@ declare module 'koishi' {
 };
 
 export interface Config {
+  theme: {
+    background: {
+      textColor: string,
+      useColor: boolean,
+      color?: string
+    },
+    boxBackground: string,
+    boxOutline: string,
+    date: string,
+    name: string,
+    cardBackground: string,
+    jellyName: string,
+    jellyIconBackground: string,
+    jellyIconBorder: string,
+    title: string,
+    eventTitle: string,
+    eventDescription: string,
+    groups: {
+      normal: string,
+      good: string,
+      great: string,
+      perfect: string,
+      special: string
+    }
+  },
   remote: string,
   test_account: string,
   compress: boolean,
@@ -31,6 +56,45 @@ export interface Config {
 export const Config: Schema<Config> = Schema.object({
   remote: Schema.string().role('link').default('https://bot.cdn.mizuki.ink').description('CDN地址'),
   test_account: Schema.string().default('Alice').description('测试账号的userId'),
+
+  theme: Schema.object({
+    background: Schema.intersect([
+      Schema.object({
+        
+        useColor: Schema.boolean().default(false).description('背景使用颜色，如果不开启则使用data里的背景图片'),
+      }),
+      Schema.union([
+        Schema.object({
+          useColor: Schema.const(true).required(),
+          color: Schema.string().role('color').default('#EAEBEE').description('请输入一个字符串。'),
+          textColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
+        }),
+        Schema.object({
+          textColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
+        }),
+      ])
+    ]),
+
+    boxBackground: Schema.string().role('color').default('#1b4771').description('水母箱背景颜色'),
+    boxOutline: Schema.string().role('color').default('#002237').description('水母箱边框颜色'),
+    date: Schema.string().role('color').default('#363739').description('日期颜色'),
+    name: Schema.string().role('color').default('#2E82EE').description('用户名颜色'),
+    cardBackground: Schema.string().role('color').default('#FFFFFF').description('卡片背景颜色'),
+    jellyName: Schema.string().role('color').default('#2E82EE').description('水母名称颜色'),
+    jellyIconBackground: Schema.string().role('color').default('#def8ff').description('水母图标背景颜色'),
+    jellyIconBorder: Schema.string().role('color').default('#76c9ec').description('水母图标边框颜色'),
+    title: Schema.string().role('color').default('#2E82EE').description('标题颜色'),
+    eventTitle: Schema.string().role('color').default('#000000').description('事件标题颜色'),
+    eventDescription: Schema.string().role('color').default('#333333').description('事件描述颜色'),
+    groups: Schema.object({
+      normal: Schema.string().role('color').default('#eace5f').description('NORMAL'),
+      good: Schema.string().role('color').default('#46eca4').description('GOOD'),
+      great: Schema.string().role('color').default('#f15fb2').description('GREAT'),
+      perfect: Schema.string().role('color').default('#935ff1').description('PERFECT'),
+      special: Schema.string().role('color').default('#5a96ef').description('SPECIAL'),
+    }).description('水母稀有度颜色组'),
+  }).description('默认主题'),
+
   compress: Schema.boolean().default(false).description('是否压缩图片, 启用会使图片质量下降, 大幅提高速度, 体积减小从而减少图片传输时所需的时间, 关闭会提高画面清晰度'),
   reply: Schema.boolean().default(false).description('消息是否回复用户'),
   at: Schema.boolean().default(false).description('消息是否@用户')

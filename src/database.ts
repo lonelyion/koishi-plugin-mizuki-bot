@@ -27,7 +27,7 @@ export interface JellyfishBox {
   decoration: Decoration[],
   salinity: number, //盐度，千分
   temperature: number, //温度，℃
-  draw_style: 'normal' | 'other',
+  draw_style: 'normal' | 'pixel',
 }
 
 export interface JellyfishMeta {

@@ -1,16 +1,134 @@
 import { Config } from '..';
 import { Context, Logger, Session } from 'koishi';
-import { JellyfishBox } from '../database';
+import { Jellyfish, JellyfishBox } from '../database';
 import _ from 'lodash';
 import { RandomChoose, RandomChooseWithWeights } from '../utils';
+import { DrawDefaultTheme } from '../draw/default';
+import { ImageBuffer } from '../draw/utils';
 
 
 const logger = new Logger('mizuki-bot-jellyfish');
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const DrawJellyfishBox = async (ctx: Context, jellyfish_box: JellyfishBox) => {
-  return;
-};
+export type JellyfishBoxEvent = {
+  id: string,
+  name: string,
+  description: string
+}
+
+// 水母箱 指令入口
+export async function CommandJellyfishBox(config: Config, ctx: Context, session: Session) {
+  const uid = session.event.user.id;
+
+
+  const jellyfish_box = await GetJellyfishBox(ctx, uid, session.platform);
+  const events = await CalculateBoxEvents(ctx, jellyfish_box);
+
+  // const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, { id: 'prts_mzk', number: 1}, events);
+  // const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, 
+  //   { id: 'prts_mzk', number: 1}, 
+  //   fake_events);
+  const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, null, events);
+
+  return <>
+  <ImageBuffer buffer={buffer}></ImageBuffer></>;
+  //return <img src={'data:image/png;base64,' + buffer.toString('base64')} />;
+}
+
+
+// 水母箱.抓水母 指令入口
+export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, session: Session) {
+  const uid = session.event.user.id;
+  const platform = session.platform;
+  let jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
+  const last_catch_time = jellyfish_box.last_catch_time;
+
+  // 需要超过2小时才能抓
+  if (uid !== config.test_account && last_catch_time.getTime() + 2 * 60 * 60 * 1000 > Date.now()) {
+    const remain = (last_catch_time.getTime() + 2 * 60 * 60 * 1000 - Date.now()) / 1000;
+    const hours = Math.floor(remain / 3600);
+    const minutes = Math.floor((remain % 3600) / 60);
+    const seconds = Math.floor(remain % 60);
+    return `别抓啦，过${hours ? hours + '小时' : ''}${minutes ? minutes + '分' : ''}${seconds}秒再来吧！`;
+  }
+
+  
+  // const meta: JellyfishMeta[] = await ctx.database.get('mzk_jellyfish_meta', {});
+  // 水母箱里的水母总数
+  const jellyfish_num = GetJellyfishInBoxCount(jellyfish_box);
+  if (jellyfish_num >= 256) {
+    return '别抓啦，水母箱里的水母太多了！';
+  }
+
+  // 在正式开始抓水母之前，先过一遍事件
+  const events = await CalculateBoxEvents(ctx, jellyfish_box);
+  // 事已至此只能重新拿一下水母箱对象了
+  jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
+  let added: Jellyfish = {
+    id: '',
+    number: 0
+  };
+  // 随机抓取数量
+  let catch_num = 0;
+  if(jellyfish_box.jellyfish.length === 0) {
+    catch_num = _.random(4, 6);
+  } else {
+    if (jellyfish_num < 10)
+      catch_num = _.random(3, 4);
+    else if (jellyfish_num < 20)
+      catch_num = _.random(2, 3);
+    else if (jellyfish_num < 50)
+      catch_num = _.random(1, 2);
+    else
+      catch_num = 1;
+  }
+
+  // 随机水母种类
+  const group = ['perfect', 'great', 'good', 'normal', 'special'];
+  let group_probability = [0.02, 0.08, 0.50, 0.40, 0.00];
+  // 特殊日期
+  if (new Date().getMonth() === 3 && new Date().getDate() === 22) {
+    group_probability = [0.02, 0.08, 0.45, 0.25, 0.20];
+  }
+  
+  // 根据group_probability概率选择一组
+  const selected_group = RandomChooseWithWeights(group_probability, group);
+  // 查找所有该组的水母
+  const group_meta = await ctx.database.get('mzk_jellyfish_meta', {
+    group: selected_group
+  });
+  // 选一个
+  const selected_jellyfish = RandomChoose(group_meta);
+  // 如果水母箱里没有就添加，有就更新number
+  const jellyfish_index = jellyfish_box.jellyfish.findIndex(jelly => jelly.id === selected_jellyfish.id);
+  if (jellyfish_index === -1) {
+    jellyfish_box.jellyfish.push({
+      id: selected_jellyfish.id,
+      number: catch_num
+    });
+  } else {
+    jellyfish_box.jellyfish[jellyfish_index].number += catch_num;
+  }
+  added = {
+    id: selected_jellyfish.id,
+    number: catch_num
+  };
+  // 更新时间
+  jellyfish_box.last_catch_time = new Date(Date.now());
+  // 写入数据库
+  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+    last_catch_time: jellyfish_box.last_catch_time,
+    jellyfish: jellyfish_box.jellyfish
+  });
+
+  logger.info(`用户${uid}在${platform}抓到了${catch_num}只${selected_jellyfish.name}`);
+
+  const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, added, events, true);
+
+  return <>
+    <ImageBuffer buffer={buffer}></ImageBuffer>
+  </>;
+}
+
 
 export const GetJellyfishBox = async (ctx: Context, id: string, platform: string) => {
   let query: JellyfishBox[] = [];
@@ -39,7 +157,7 @@ const GetJellyfishInBoxCount = (jellyfish_box: JellyfishBox) => {
   return jellyfish_box.jellyfish.reduce((pre, cur) => pre + cur.number, 0);
 };
 
-const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) => {
+const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : Promise<JellyfishBoxEvent[]> =>  {
   let refresh = false;
   let refresh_number = 0;
   const last_time = jellyfish_box.last_refresh_time;
@@ -154,109 +272,7 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) => 
   return events;
 };
 
-export async function CommandJellyfishBox(config: Config, ctx: Context, session: Session) {
-  const uid = session.event.user.id;
-  
 
-  const jellyfish_box = await GetJellyfishBox(ctx, uid, session.platform);
-  const events = await CalculateBoxEvents(ctx, jellyfish_box);
-
-  return JSON.stringify({
-    ...jellyfish_box,
-    events: events
-  }, null, 2);
-}
-
-export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, session: Session) {
-  // 水母箱.抓水母
-  const uid = session.event.user.id;
-  const platform = session.platform;
-  let jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
-  const last_catch_time = jellyfish_box.last_catch_time;
-
-  // 需要超过2小时才能抓
-  if (uid !== config.test_account && last_catch_time.getTime() + 2 * 60 * 60 * 1000 > Date.now()) {
-    const remain = (last_catch_time.getTime() + 2 * 60 * 60 * 1000 - Date.now()) / 1000;
-    const hours = Math.floor(remain / 3600);
-    const minutes = Math.floor((remain % 3600) / 60);
-    const seconds = Math.floor(remain % 60);
-    return `别抓啦，过${hours ? hours + '小时' : ''}${minutes ? minutes + '分' : ''}${seconds}秒再来吧！`;
-  }
-
-  
-  // const meta: JellyfishMeta[] = await ctx.database.get('mzk_jellyfish_meta', {});
-  // 水母箱里的水母总数
-  const jellyfish_num = GetJellyfishInBoxCount(jellyfish_box);
-  if (jellyfish_num >= 256) {
-    return '别抓啦，水母箱里的水母太多了！';
-  }
-
-  // 在正式开始抓水母之前，先过一遍事件
-  const events = await CalculateBoxEvents(ctx, jellyfish_box);
-  // 事已至此只能重新拿一下水母箱对象了
-  jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
-  let added = {};
-  // 随机抓取数量
-  let catch_num = 0;
-  if(jellyfish_box.jellyfish.length === 0) {
-    catch_num = _.random(4, 6);
-  } else {
-    if (jellyfish_num < 10)
-      catch_num = _.random(3, 4);
-    else if (jellyfish_num < 20)
-      catch_num = _.random(2, 3);
-    else if (jellyfish_num < 50)
-      catch_num = _.random(1, 2);
-    else
-      catch_num = 1;
-  }
-
-  // 随机水母种类
-  const group = ['perfect', 'great', 'good', 'normal', 'special'];
-  let group_probability = [0.02, 0.08, 0.50, 0.40, 0.00];
-  // 特殊日期
-  if (new Date().getMonth() === 3 && new Date().getDate() === 22) {
-    group_probability = [0.02, 0.08, 0.45, 0.25, 0.20];
-  }
-  
-  // 根据group_probability概率选择一组
-  const selected_group = RandomChooseWithWeights(group_probability, group);
-  // 查找所有该组的水母
-  const group_meta = await ctx.database.get('mzk_jellyfish_meta', {
-    group: selected_group
-  });
-  // 选一个
-  const selected_jellyfish = RandomChoose(group_meta);
-  // 如果水母箱里没有就添加，有就更新number
-  const jellyfish_index = jellyfish_box.jellyfish.findIndex(jelly => jelly.id === selected_jellyfish.id);
-  if (jellyfish_index === -1) {
-    jellyfish_box.jellyfish.push({
-      id: selected_jellyfish.id,
-      number: catch_num
-    });
-  } else {
-    jellyfish_box.jellyfish[jellyfish_index].number += catch_num;
-  }
-  added = {
-    'id': selected_jellyfish.id,
-    'number': catch_num
-  };
-  // 更新时间
-  jellyfish_box.last_catch_time = new Date(Date.now());
-  // 写入数据库
-  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
-    last_catch_time: jellyfish_box.last_catch_time,
-    jellyfish: jellyfish_box.jellyfish
-  });
-
-  logger.info(`用户${uid}在${platform}抓到了${catch_num}只${selected_jellyfish.name}`);
-
-  return JSON.stringify({
-    ...jellyfish_box,
-    events: events,
-    added
-  }, null, 2);
-}
 
 type ParsedItem = {
   name: string;
@@ -402,7 +418,6 @@ export async function CommandJellyfishBoxDrop(config: Config, ctx: Context, sess
       jellyfish_box.jellyfish.splice(i, 1);
     }
   }
-
 
   // 接下来只需要保存到数据库就完事了
   // 但是先不写
