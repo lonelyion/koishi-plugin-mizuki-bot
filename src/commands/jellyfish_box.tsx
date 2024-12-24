@@ -3,7 +3,7 @@ import { Context, Logger, Session } from 'koishi';
 import { Jellyfish, JellyfishBox } from '../database';
 import _ from 'lodash';
 import { RandomChoose, RandomChooseWithWeights } from '../utils';
-import { DrawDefaultTheme } from '../draw/default';
+import { DrawDefaultThemeBox, DrawDefaultThemeStatistics } from '../draw/default';
 import { ImageBuffer } from '../draw/utils';
 
 
@@ -27,7 +27,7 @@ export async function CommandJellyfishBox(config: Config, ctx: Context, session:
   // const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, 
   //   { id: 'prts_mzk', number: 1}, 
   //   fake_events);
-  const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, null, events);
+  const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, null, events);
 
   return <>
   <ImageBuffer buffer={buffer}></ImageBuffer></>;
@@ -122,11 +122,24 @@ export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, ses
 
   logger.info(`用户${uid}在${platform}抓到了${catch_num}只${selected_jellyfish.name}`);
 
-  const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, added, events, true);
-
+  const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, added, events, true);
+  //const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, { id: 'prts_mzk', number: 1 }, events, true);
   return <>
     <ImageBuffer buffer={buffer}></ImageBuffer>
   </>;
+}
+
+export const CommandJellyfishBoxStatistics = async (config: Config, ctx: Context, session: Session) => {
+  const uid = session.event.user.id;
+  const platform = session.platform;
+  const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
+  const buffer = await DrawDefaultThemeStatistics(ctx, config, session, jellyfish_box);
+  return <ImageBuffer buffer={buffer}></ImageBuffer>;
+}
+
+export const CommandJellyfishBoxCatalogue = async (config: Config, ctx: Context, session: Session) => {
+  const buffer = await DrawDefaultThemeStatistics(ctx, config, session);
+  return <ImageBuffer buffer={buffer}></ImageBuffer>;
 }
 
 
@@ -281,6 +294,7 @@ type ParsedItem = {
 
 type DropItem = {
   id: string,
+  name: string,
   num: number | 'all'
 }
 
@@ -316,6 +330,7 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
   const group_values = new Set(['normal', 'good', 'great', 'perfect', 'special']);
   const meta = await ctx.database.get('mzk_jellyfish_meta', {});
   const all_jellyfish_id_set = new Set(meta.map(jelly => jelly.id));
+  const all_jellyfish_id_to_name = new Map(meta.map(jelly => [jelly.id, jelly.name]));
 
   const errors = [];
   const result: DropItem[] = [];
@@ -370,6 +385,7 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
 
       result.push({
         id: item_id,
+        name: all_jellyfish_id_to_name.get(item_id),
         num: item.number
       });
     }
@@ -420,10 +436,10 @@ export async function CommandJellyfishBoxDrop(config: Config, ctx: Context, sess
   }
 
   // 接下来只需要保存到数据库就完事了
-  // 但是先不写
-  return JSON.stringify({
-    drop: drop_result,
-    errors: validate_errors.map(error => error.message).join('\n'),
-    jellyfish_box: jellyfish_box.jellyfish
+  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+    jellyfish: jellyfish_box.jellyfish
   });
+
+  const message = `成功放生${drop_result.map(item => item.num === 'all' ? `全部${item.name}` : `${item.name}×${item.num}`).join('、')}`;
+  return message;
 }

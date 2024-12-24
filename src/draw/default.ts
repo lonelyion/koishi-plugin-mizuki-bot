@@ -4,7 +4,7 @@ import path from 'path';
 import { Config } from '..';
 import { ProcessJellyfishImage } from './utils';
 import _ from 'lodash';
-import type { CanvasRenderingContext2D } from '@ltxhhz/koishi-plugin-skia-canvas';
+import type { Canvas, CanvasRenderingContext2D } from '@ltxhhz/koishi-plugin-skia-canvas';
 import type { JellyfishBoxEvent } from '../commands/jellyfish_box';
 
 const logger = new Logger('mizuki-bot-draw-normal');
@@ -19,7 +19,49 @@ const drawRoundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, widt
   ctx.restore();
 }
 
-export const DrawDefaultTheme = async (koishiCtx: Context, config: Config, session: Session,
+const drawPacman = async (koishiCtx: Context, dotCount: number) => {
+  const { Canvas } = koishiCtx.skia;
+
+  const canvas = new Canvas(240, 24);
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#e0e97d';
+  const centerX = 12; // 圆心 X 坐标
+  const centerY = 12; // 圆心 Y 坐标
+  const radius = 12; // 圆的半径
+  // 画 Pac-Man 的眼睛
+  const eyeX = centerX + 2;
+  const eyeY = centerY - 7;
+  const eyeRadius = 1.5;
+  
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.arc(centerX, centerY, radius, 0.2 * Math.PI, 1.8 * Math.PI, false); // 留出嘴巴部分
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.globalCompositeOperation = 'destination-out'; // 设置为擦除模式
+  ctx.beginPath();
+  ctx.arc(eyeX, eyeY, eyeRadius, 0, 2 * Math.PI, false);
+  ctx.fill(); // 填充以擦除眼睛区域
+  ctx.globalCompositeOperation = 'source-over'; // 恢复默认混合模式
+
+  const dotRadius = 6; // 圆点半径
+  const dotSpacing = 15; // 圆点之间的间距
+  ctx.fillStyle = '#8aabfd';
+
+  for (let i = 1; i <= dotCount; i++) {
+    const dotX = centerX + radius + i * dotSpacing; // 每个圆点的 X 坐标
+    const dotY = centerY; // 圆点的 Y 坐标
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI, false);
+    ctx.fill();
+  }
+
+  return canvas;
+}
+
+export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, session: Session,
   jellyfishBox: JellyfishBox, newJelly?: Jellyfish, events?: JellyfishBoxEvent[],
   isCatch: boolean = false) => {
   const { Canvas, loadImage, FontLibrary } = koishiCtx.skia;
@@ -64,13 +106,17 @@ export const DrawDefaultTheme = async (koishiCtx: Context, config: Config, sessi
   const ctx = canvas.getContext('2d');
 
   // 绘制背景色
-  if (config.theme.background.useColor) {
-    ctx.fillStyle = config.theme.background.color;
-    ctx.fillRect(0, 0, 768, height);
-  } else {
-    const background = await loadImage(path.join(themeRoot, 'background.png'));
-    ctx.drawImage(background, 0, 0, background.width, background.height, 0, 0, 768, height);
+  ctx.fillStyle = config.theme.backgroundColor;
+  ctx.fillRect(0, 0, 768, height);
+
+  // 绘制背景平铺水母
+  const backgroundJelly = await loadImage(path.join(themeRoot, 'background_jelly.png'));
+  for (let y = 0; y < height; y += backgroundJelly.height) {
+    for (let x = 0; x < 768; x += backgroundJelly.width) {
+      ctx.drawImage(backgroundJelly, x, y, backgroundJelly.width, backgroundJelly.height);
+    }
   }
+
 
   // 绘制装饰
   const trDeco = await loadImage(path.join(themeRoot, 'tr_deco.png'));
@@ -96,6 +142,17 @@ export const DrawDefaultTheme = async (koishiCtx: Context, config: Config, sessi
   ctx.textAlign = 'left';
   const nameMetrics = ctx.measureText(session.event.user.name);
   ctx.fillText(session.event.user.name, 80 + avatarSize + 24, 64 + nameMetrics.actualBoundingBoxAscent);
+
+
+
+  // 绘制吃豆人
+  const pacmanX = 80 + avatarSize + 24;
+  const pacmanY = 64 + nameMetrics.actualBoundingBoxAscent + 8;
+  const jellyCount = jellyfishBox.jellyfish.reduce((sum, jelly) => sum + jelly.number, 0);
+  const pacmanCount = Math.floor(jellyCount / 20);
+  const pacmanCanvas = await drawPacman(koishiCtx, pacmanCount);
+  // 这里故意不使用drawCanvas，因为drawCanvas会擦除背景
+  ctx.drawImage(pacmanCanvas, pacmanX, pacmanY);
 
   // 绘制日期
   ctx.fillStyle = '#7986cb';
@@ -182,24 +239,11 @@ export const DrawDefaultTheme = async (koishiCtx: Context, config: Config, sessi
   return await canvas.toBuffer('png');
 };
 
-
-const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, newJelly?: Jellyfish, jellyRoot?: string) => {
-
+const DrawCardCanvas = async (koishiCtx: Context, config: Config, width: number, height: number, title: string, content: Canvas) => {
   const { Canvas } = koishiCtx.skia;
 
-  if (!newJelly || !jellyRoot) {
-    return null;
-  }
-
-  const width = 768 - 48 * 2; // 672
-  const height = 200;
   const canvas = new Canvas(width, height);
   const ctx = canvas.getContext('2d');
-
-  const newJellyImage = await ProcessJellyfishImage(koishiCtx, path.join(jellyRoot, `${newJelly.id}.png`));
-
-  const meta = await koishiCtx.database.get('mzk_jellyfish_meta', { id: newJelly.id });
-  const name = meta[0].name;
 
   ctx.fillStyle = config.theme.cardBackground;
   drawRoundRect(ctx, 0, 0, width, height, 16);
@@ -207,7 +251,34 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
   ctx.fillStyle = config.theme.title;
   ctx.font = '30px noto-sans-sc-medium';
   ctx.textAlign = 'left';
-  ctx.fillText('新增', 24, 36 + 2);
+  ctx.fillText(title, 24, 36 + 2);
+
+  ctx.drawCanvas(content, 0, 38);
+
+  return canvas;
+}
+
+const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJelly?: Jellyfish, jellyRoot?: string, withBackground: boolean = false, showNumber: boolean = true) => {
+  const { Canvas } = koishiCtx.skia;
+
+  if (!newJelly || !jellyRoot) {
+    return null;
+  }
+
+  const width = 768 - 48 * 2; // 672
+  const height = 162;
+  const contentCanvas = new Canvas(width, height);
+  const ctx = contentCanvas.getContext('2d');
+
+  if (withBackground) {
+    ctx.fillStyle = config.theme.cardBackground;
+    drawRoundRect(ctx, 0, 0, width, height, 16);
+  }
+
+  const newJellyImage = await ProcessJellyfishImage(koishiCtx, path.join(jellyRoot, `${newJelly.id}.png`));
+
+  const meta = await koishiCtx.database.get('mzk_jellyfish_meta', { id: newJelly.id });
+  const name = meta[0].name;
 
   const iconCanvas = new Canvas(128, 128);
   const iconCtx = iconCanvas.getContext('2d');
@@ -220,7 +291,7 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
 
   // 绘制水母图标
   iconCtx.drawCanvas(newJellyImage, 0, 0, newJellyImage.width, newJellyImage.height, 12, 12, 104, 104);
-  ctx.drawCanvas(iconCanvas, 24, 52);  // 36 + 16 = 52
+  ctx.drawCanvas(iconCanvas, 24, 16);
 
   // 在右下角绘制一个半透明水母
   ctx.save();
@@ -229,16 +300,20 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
   ctx.closePath();
   ctx.clip();
   ctx.globalAlpha = 0.3;
-  ctx.translate(width - 100, height - 100);
+  ctx.translate(width - 100, height/2);
   ctx.rotate(Math.PI / -4);
-  ctx.drawCanvas(newJellyImage, 0, 0, newJellyImage.width, newJellyImage.height, -110, -80, 220, 220);
+  const tx = -100, ty = -60;
+  const tw = 220, th = 220;
+  ctx.fillStyle = 'red';
+  // ctx.fillRect(tx, ty, tw, th);
+  ctx.drawCanvas(newJellyImage, 0, 0, newJellyImage.width, newJellyImage.height, tx, ty, tw, th);
   ctx.restore();
 
   // 绘制水母名称
   ctx.fillStyle = config.theme.jellyName;
   ctx.font = '30px noto-sans-sc-medium';
   ctx.textAlign = 'left';
-  ctx.fillText(name, 24 + 128 + 16, 84); // 52 + 32 = 84
+  ctx.fillText(name, 24 + 128 + 16, 46);
 
   // 绘制水母描述
   ctx.fillStyle = config.theme.eventDescription;
@@ -273,14 +348,15 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
   }
 
   lines.forEach((line, index) => {
-    ctx.fillText(line, 24 + 128 + 16, 110 + index * lineHeight + 4);  // 84 + 26 = 110
+    ctx.fillText(line, 24 + 128 + 16, 72 + index * lineHeight + 4);  // 46 + 26 = 72
   });
 
   // 绘制数量
-  ctx.fillStyle = config.theme.jellyName;
+  ctx.fillStyle = showNumber ? config.theme.jellyName : config.theme.eventDescription;
   ctx.font = '24px noto-sans-sc-medium';
   ctx.textAlign = 'left';
-  ctx.fillText(`×${newJelly.number}`, 24 + 128 + 16, 114 + lines.length * lineHeight + 4);
+  const number = showNumber ? `×${newJelly.number}` : '稀有度：';
+  ctx.fillText(number, 24 + 128 + 16, 72 + lines.length * lineHeight + 4);
 
   // 在数量后面绘制稀有度
   const group = meta[0].group;
@@ -288,13 +364,18 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
   ctx.fillStyle = groupColor;
   ctx.font = '24px noto-sans-sc-medium';
   ctx.textAlign = 'left';
-  ctx.fillText(`${group.toUpperCase()}`, 24 + 128 + 16 + ctx.measureText(`×${newJelly.number}`).width + 8, 114 + lines.length * lineHeight + 4);
+  const groupDx = 24 + 128 + 16 + ctx.measureText(number).width + 8;
+  ctx.fillText(`${group.toUpperCase()}`, groupDx, 72 + lines.length * lineHeight + 4);
 
-  return canvas;
+  return contentCanvas;
+}
+
+const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, newJelly?: Jellyfish, jellyRoot?: string) => {
+  const contentCanvas = await DrawJellyfishCardContent(koishiCtx, config, newJelly, jellyRoot);
+  return await DrawCardCanvas(koishiCtx, config, 672, 200, '新增', contentCanvas);
 }
 
 const DrawGeneralCardCanvas = async (koishiCtx: Context, config: Config, title: string, events?: JellyfishBoxEvent[]) => {
-
   const { Canvas } = koishiCtx.skia;
 
   if (!events || events.length === 0) {
@@ -342,4 +423,86 @@ const DrawGeneralCardCanvas = async (koishiCtx: Context, config: Config, title: 
   }
 
   return canvas;
+}
+
+// 水母统计表 & 图鉴
+export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Config, session: Session, jellyfishBox?: JellyfishBox) => {
+  const { Canvas, loadImage, FontLibrary } = koishiCtx.skia;
+
+  const meta = await koishiCtx.database.get('mzk_jellyfish_meta', {}, ['id', 'group']);
+  const flag = jellyfishBox ? true : false; // 是否是统计表
+  
+  const jellies = flag ? _.clone(jellyfishBox.jellyfish) : meta.map(meta => ({ id: meta.id, number: 0 }));
+  
+  // 将jellyfish按group排序，'perfect'>'great'>'good'>'normal'>'special'
+  const selectMeta = (id: string) => meta.find(meta => meta.id === id);
+  
+  const groupPriority = {
+    perfect: 5,
+    great: 4,
+    good: 3,
+    normal: 2,
+    special: 1,
+  };
+  jellies.sort((a, b) => {
+    const aMeta = selectMeta(a.id);
+    const bMeta = selectMeta(b.id);
+    return (groupPriority[bMeta.group] || 0) - (groupPriority[aMeta.group] || 0);
+  });
+
+  const jellySpeciesCount = _.size(jellies);
+  const singleCol = jellySpeciesCount <= 10;
+  const width = 708 * (_.ceil(jellySpeciesCount / 10)) + (singleCol ? 12 : 0);
+  const height = 84 + 24 + 24 + (162 +8) * _.min([10, jellySpeciesCount]);
+
+  const root = path.join(koishiCtx.baseDir, 'data/mizuki-bot');
+  const imageRoot = path.join(root, 'image');
+  const fontRoot = path.join(root, 'font');
+  const jellyRoot = path.join(imageRoot, 'jellyfish/default');
+  const themeRoot = path.join(imageRoot, '/theme/default');
+
+  FontLibrary.use('noto-sans-sc-regular', path.join(fontRoot, 'NotoSansSC-Regular.ttf'));
+  FontLibrary.use('noto-sans-sc-medium', path.join(fontRoot, 'NotoSansSC-Medium.ttf'));
+  FontLibrary.use('noto-sans-sc-bold', path.join(fontRoot, 'NotoSansSC-Bold.ttf'));
+
+  const canvas = new Canvas(width, height);
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = config.theme.backgroundColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // 绘制背景
+  const backgroundImage = await loadImage(path.join(themeRoot, 'background_jelly.png'));
+  for (let y = 0; y < height; y += backgroundImage.height) {
+    for (let x = 0; x < width; x += backgroundImage.width) {
+      ctx.drawImage(backgroundImage, x, y, backgroundImage.width, backgroundImage.height);
+    }
+  }
+
+  // 日期
+  const date = '〇 ' + new Date().toLocaleDateString();
+  ctx.fillStyle = config.theme.date;
+  ctx.font = '24px noto-sans-sc-medium';
+  ctx.textAlign = 'left';
+  ctx.fillText(date, 48, 54);
+
+  // 标题
+  ctx.fillStyle = config.theme.title;
+  ctx.font = '32px noto-sans-sc-bold';
+  ctx.textAlign = 'left';
+  const title = flag ? '水母统计表@' + session.event.user.name : '水母图鉴';
+  ctx.fillText(title, 48, 54 + 32); // = 84
+
+  // 绘制水母
+  for (let i = 0; i < jellies.length; i++) {
+    const row = i % 10;
+    const col = _.floor(i / 10);
+    const jelly = jellies[i];
+    const jellyCanvas = await DrawJellyfishCardContent(koishiCtx, config, jelly, jellyRoot, true, flag);
+    const dx = 24 + col * (672 + 24);
+    const dy = 84 + 24 + row * (162 + 8);
+    ctx.drawCanvas(jellyCanvas, dx, dy);
+  }
+
+  return canvas.toBuffer('png');
 }

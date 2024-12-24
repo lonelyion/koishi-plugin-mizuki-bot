@@ -1,6 +1,12 @@
 import { Context, Logger, Schema } from 'koishi';
 import * as Database from './database';
-import { CommandJellyfishBox, CommandJellyfishBoxCatch, CommandJellyfishBoxDrop } from './commands/jellyfish_box';
+import { 
+  CommandJellyfishBox, 
+  CommandJellyfishBoxCatch, 
+  CommandJellyfishBoxDrop,
+  CommandJellyfishBoxStatistics,
+  CommandJellyfishBoxCatalogue } 
+  from './commands/jellyfish_box';
 import { CommandTest } from './commands/test';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -22,11 +28,8 @@ declare module 'koishi' {
 
 export interface Config {
   theme: {
-    background: {
-      textColor: string,
-      useColor: boolean,
-      color?: string
-    },
+    backgroundColor: string,
+    backgroundTextColor: string,
     boxBackground: string,
     boxOutline: string,
     date: string,
@@ -58,23 +61,8 @@ export const Config: Schema<Config> = Schema.object({
   test_account: Schema.string().default('Alice').description('测试账号的userId'),
 
   theme: Schema.object({
-    background: Schema.intersect([
-      Schema.object({
-        
-        useColor: Schema.boolean().default(false).description('背景使用颜色，如果不开启则使用data里的背景图片'),
-      }),
-      Schema.union([
-        Schema.object({
-          useColor: Schema.const(true).required(),
-          color: Schema.string().role('color').default('#EAEBEE').description('请输入一个字符串。'),
-          textColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
-        }),
-        Schema.object({
-          textColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
-        }),
-      ])
-    ]),
-
+    backgroundColor: Schema.string().role('color').default('#EAEBEE').description('背景颜色'),
+    backgroundTextColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
     boxBackground: Schema.string().role('color').default('#1b4771').description('水母箱背景颜色'),
     boxOutline: Schema.string().role('color').default('#002237').description('水母箱边框颜色'),
     date: Schema.string().role('color').default('#363739').description('日期颜色'),
@@ -185,6 +173,14 @@ export function apply(ctx: Context) {
 
   ctx.command('水母箱.抓水母').alias('抓水母').action(async ({ session }) => {
     return await CommandJellyfishBoxCatch(ctx.config, ctx, session);
+  });
+
+  ctx.command('水母箱.统计').alias('水母统计表').action(async ({ session }) => {
+    return await CommandJellyfishBoxStatistics(ctx.config, ctx, session);
+  });
+
+  ctx.command('水母箱.图鉴').alias('水母图鉴').action(async ({ session }) => {
+    return await CommandJellyfishBoxCatalogue(ctx.config, ctx, session);
   });
 
   ctx.command('水母箱.放生 <kind:string> [...rest]').alias('放生')
