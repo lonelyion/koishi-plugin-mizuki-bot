@@ -20,6 +20,7 @@ export interface Decoration {
 export interface JellyfishBox {
   id: number,
   user_id: string,
+  user_nick?: string,
   platform: string,
   last_catch_time: Date,
   last_refresh_time: Date,
@@ -64,6 +65,7 @@ export function apply(ctx: Context) {
   ctx.model.extend('mzk_jellyfish_box', {
     id: 'unsigned',
     user_id: 'string',
+    user_nick: 'string',
     platform: 'string',
     last_catch_time: 'timestamp',
     last_refresh_time: 'timestamp',

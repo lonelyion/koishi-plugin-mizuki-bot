@@ -5,7 +5,9 @@ import {
   CommandJellyfishBoxCatch, 
   CommandJellyfishBoxDrop,
   CommandJellyfishBoxStatistics,
-  CommandJellyfishBoxCatalogue } 
+  CommandJellyfishBoxCatalogue,
+  CommandJellyfishBoxSetStyle
+} 
   from './commands/jellyfish_box';
 import { CommandTest } from './commands/test';
 import * as fs from 'fs/promises';
@@ -168,6 +170,7 @@ export function apply(ctx: Context) {
 
   ctx.command('水母箱')
     .action(async ({ session }) => {
+      logger.info(`test: ${JSON.stringify(session.event)}`);
       return await CommandJellyfishBox(ctx.config, ctx, session);
     });
 
@@ -183,6 +186,10 @@ export function apply(ctx: Context) {
     return await CommandJellyfishBoxCatalogue(ctx.config, ctx, session);
   });
 
+  ctx.command('水母箱.样式 <style:string>').alias('样式').action(async ({ session }, style) => {
+    return await CommandJellyfishBoxSetStyle(ctx.config, ctx, session, style);
+  });
+
   ctx.command('水母箱.放生 <kind:string> [...rest]').alias('放生')
     .usage('请添加水母名称以及数量')
     .example('水母箱 放生 灯塔水母 all')
@@ -190,6 +197,7 @@ export function apply(ctx: Context) {
     .action(async ({ session }, kind , ...rest) => {
       return await CommandJellyfishBoxDrop(ctx.config, ctx, session, [kind, ...rest]);
     });
+
 
   ctx.command('测试').alias('a').action(async ({ session }) => {
     return await CommandTest(ctx.config, ctx, session);

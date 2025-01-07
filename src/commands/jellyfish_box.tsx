@@ -15,10 +15,28 @@ export type JellyfishBoxEvent = {
   description: string
 }
 
+const PromptNickname = async (ctx: Context, session: Session) => {
+  if (session.platform === 'qq' && !session.event.user.name) {
+    const box = await GetJellyfishBox(ctx, session.event.user.id, session.platform);
+    if(!box.user_nick) {
+      session.send(`请先@我输入昵称，让机器人知道如何称呼你\n例如：@${session.bot.user.name} 海月离`);
+      const name = await session.prompt();
+      if (!name) return { success: false };
+      await ctx.database.set('mzk_jellyfish_box', box.id, {
+        user_nick: name
+      });
+      return { success: true, name };
+    }
+  }
+  return { success: true, name: session.event.user.name };  // 其他平台不需要
+};
+
 // 水母箱 指令入口
 export async function CommandJellyfishBox(config: Config, ctx: Context, session: Session) {
   const uid = session.event.user.id;
 
+  const { success } = await PromptNickname(ctx, session);
+  if (!success) return '输入超时或取消，已退出';
 
   const jellyfish_box = await GetJellyfishBox(ctx, uid, session.platform);
   const events = await CalculateBoxEvents(ctx, jellyfish_box);
@@ -30,13 +48,16 @@ export async function CommandJellyfishBox(config: Config, ctx: Context, session:
   const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, null, events);
 
   return <>
-  <ImageBuffer buffer={buffer}></ImageBuffer></>;
-  //return <img src={'data:image/png;base64,' + buffer.toString('base64')} />;
+    <ImageBuffer buffer={buffer}></ImageBuffer>
+  </>;
 }
 
 
 // 水母箱.抓水母 指令入口
 export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, session: Session) {
+  const { success } = await PromptNickname(ctx, session);
+  if (!success) return '输入超时或取消，已退出';
+
   const uid = session.event.user.id;
   const platform = session.platform;
   let jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
@@ -135,12 +156,31 @@ export const CommandJellyfishBoxStatistics = async (config: Config, ctx: Context
   const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
   const buffer = await DrawDefaultThemeStatistics(ctx, config, session, jellyfish_box);
   return <ImageBuffer buffer={buffer}></ImageBuffer>;
-}
+};
 
 export const CommandJellyfishBoxCatalogue = async (config: Config, ctx: Context, session: Session) => {
   const buffer = await DrawDefaultThemeStatistics(ctx, config, session);
   return <ImageBuffer buffer={buffer}></ImageBuffer>;
-}
+};
+
+export const CommandJellyfishBoxSetStyle = async (config: Config, ctx: Context, session: Session, style: string) => {
+  const uid = session.event.user.id;
+  const platform = session.platform;
+  const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
+  if(style === 'normal' || style === '默认') {
+    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+      draw_style: 'normal'
+    });
+    return '已切换为默认样式';
+  } else if (style === 'pixel' || style === '像素') {
+    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+      draw_style: 'pixel'
+    });
+    return '已切换为像素样式';
+  } else {
+    return '找不到该样式，请检查名称';
+  }
+};
 
 
 export const GetJellyfishBox = async (ctx: Context, id: string, platform: string) => {
@@ -354,6 +394,7 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
       } else {
         result.push(...jelly_search.map(jelly => ({
           id: jelly.id,
+          name: all_jellyfish_id_to_name.get(jelly.id),
           num: jelly.number
         })));
       }

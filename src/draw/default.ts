@@ -17,7 +17,7 @@ const drawRoundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, widt
   ctx.clip();
   ctx.fillRect(x, y, width, height);
   ctx.restore();
-}
+};
 
 const drawPacman = async (koishiCtx: Context, dotCount: number) => {
   const { Canvas } = koishiCtx.skia;
@@ -59,7 +59,7 @@ const drawPacman = async (koishiCtx: Context, dotCount: number) => {
   }
 
   return canvas;
-}
+};
 
 export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, session: Session,
   jellyfishBox: JellyfishBox, newJelly?: Jellyfish, events?: JellyfishBoxEvent[],
@@ -82,7 +82,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
       id: 'help2',
       name: '水母箱 抓水母',
       description: '抓几只水母进水母箱'
-    } : null,
+    } : null
   ].filter(Boolean);
 
   // 加载字体
@@ -137,11 +137,12 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
   ctx.drawCanvas(avatarCanvas, 80, 64);
 
   // 绘制用户名
+  const username = jellyfishBox.user_nick ?? session.event.user.name;
   ctx.font = '48px noto-sans-sc-bold';
   ctx.fillStyle = config.theme.name;
   ctx.textAlign = 'left';
-  const nameMetrics = ctx.measureText(session.event.user.name);
-  ctx.fillText(session.event.user.name, 80 + avatarSize + 24, 64 + nameMetrics.actualBoundingBoxAscent);
+  const nameMetrics = ctx.measureText(username);
+  ctx.fillText(username, 80 + avatarSize + 24, 64 + nameMetrics.actualBoundingBoxAscent);
 
 
 
@@ -256,7 +257,7 @@ const DrawCardCanvas = async (koishiCtx: Context, config: Config, width: number,
   ctx.drawCanvas(content, 0, 38);
 
   return canvas;
-}
+};
 
 const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJelly?: Jellyfish, jellyRoot?: string, withBackground: boolean = false, showNumber: boolean = true) => {
   const { Canvas } = koishiCtx.skia;
@@ -324,13 +325,13 @@ const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJ
   const maxWidth = width - (24 + 128 + 16 + 24); // 右边距24px
   const lineHeight = 26;
   const maxLines = 2;
-  let lines = [];
+  const lines = [];
   let currentLine = '';
-  let chars = description;
+  const chars = description;
 
   for (let i = 0; i < chars.length; i++) {
-    let potentialLine = currentLine + chars[i];
-    let metrics = ctx.measureText(potentialLine);
+    const potentialLine = currentLine + chars[i];
+    const metrics = ctx.measureText(potentialLine);
     if (metrics.width > maxWidth) {
       if (lines.length >= maxLines) {
         currentLine += '...';
@@ -368,12 +369,15 @@ const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJ
   ctx.fillText(`${group.toUpperCase()}`, groupDx, 72 + lines.length * lineHeight + 4);
 
   return contentCanvas;
-}
+};
 
 const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, newJelly?: Jellyfish, jellyRoot?: string) => {
+  if (!newJelly || !jellyRoot) {
+    return null;
+  }
   const contentCanvas = await DrawJellyfishCardContent(koishiCtx, config, newJelly, jellyRoot);
   return await DrawCardCanvas(koishiCtx, config, 672, 200, '新增', contentCanvas);
-}
+};
 
 const DrawGeneralCardCanvas = async (koishiCtx: Context, config: Config, title: string, events?: JellyfishBoxEvent[]) => {
   const { Canvas } = koishiCtx.skia;
@@ -423,7 +427,7 @@ const DrawGeneralCardCanvas = async (koishiCtx: Context, config: Config, title: 
   }
 
   return canvas;
-}
+};
 
 // 水母统计表 & 图鉴
 export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Config, session: Session, jellyfishBox?: JellyfishBox) => {
@@ -442,7 +446,7 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
     great: 4,
     good: 3,
     normal: 2,
-    special: 1,
+    special: 1
   };
   jellies.sort((a, b) => {
     const aMeta = selectMeta(a.id);
@@ -487,10 +491,11 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
   ctx.fillText(date, 48, 54);
 
   // 标题
+  const username = jellyfishBox?.user_nick || session.event.user.name;
   ctx.fillStyle = config.theme.title;
   ctx.font = '32px noto-sans-sc-bold';
   ctx.textAlign = 'left';
-  const title = flag ? '水母统计表@' + session.event.user.name : '水母图鉴';
+  const title = flag ? '水母统计表@' + username : '水母图鉴';
   ctx.fillText(title, 48, 54 + 32); // = 84
 
   // 绘制水母
@@ -505,4 +510,4 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
   }
 
   return canvas.toBuffer('png');
-}
+};
