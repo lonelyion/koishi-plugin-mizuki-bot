@@ -2,10 +2,18 @@ import { Context } from 'koishi';
 
 declare module 'koishi' {
   interface Tables {
+    mzk_user: User,
     mzk_jellyfish_box: JellyfishBox,
     mzk_jellyfish_meta: JellyfishMeta,
     mzk_jellyfish_event_meta: EventMeta
   }
+}
+
+export interface User {
+  id: number,
+  platform: string,
+  user_id: string,
+  nickname: string,
 }
 
 export interface Jellyfish {
@@ -18,10 +26,7 @@ export interface Decoration {
 }
 
 export interface JellyfishBox {
-  id: number,
-  user_id: string,
-  user_nick?: string,
-  platform: string,
+  user_id: number,
   last_catch_time: Date,
   last_refresh_time: Date,
   jellyfish: Jellyfish[],
@@ -61,12 +66,19 @@ export interface EventMeta {
 export const name = 'Database';
 
 export function apply(ctx: Context) {
+  ctx.model.extend('mzk_user', {
+    id: 'unsigned',
+    platform: 'string',
+    user_id: 'string',
+    nickname: 'string'
+  }, {
+    primary: 'id',
+    autoInc: true
+  });
+
   // mzk_jellyfish_box
   ctx.model.extend('mzk_jellyfish_box', {
-    id: 'unsigned',
-    user_id: 'string',
-    user_nick: 'string',
-    platform: 'string',
+    user_id: 'unsigned',
     last_catch_time: 'timestamp',
     last_refresh_time: 'timestamp',
     jellyfish: 'json',
@@ -74,7 +86,13 @@ export function apply(ctx: Context) {
     salinity: 'double',
     temperature: 'double',
     draw_style: 'string'
-  }, { autoInc: true });
+  }, {
+    primary: 'user_id',
+    autoInc: true,
+    foreign: {
+      user_id: ['mzk_user', 'entity_id']
+    }
+  });
 
   ctx.model.extend('mzk_jellyfish_meta', {
     id: 'string',

@@ -1,6 +1,6 @@
 import { Config } from '..';
 import { Context, Logger, Session } from 'koishi';
-import { Jellyfish, JellyfishBox } from '../database';
+import { Jellyfish, JellyfishBox, User } from '../database';
 import _ from 'lodash';
 import { RandomChoose, RandomChooseWithWeights } from '../utils';
 import { DrawDefaultThemeBox, DrawDefaultThemeStatistics } from '../draw/default';
@@ -17,13 +17,13 @@ export type JellyfishBoxEvent = {
 
 const PromptNickname = async (ctx: Context, session: Session) => {
   if (session.platform === 'qq' && !session.event.user.name) {
-    const box = await GetJellyfishBox(ctx, session.event.user.id, session.platform);
-    if(!box.user_nick) {
-      session.send(`请先@我输入昵称，让机器人知道如何称呼你\n例如：@${session.bot.user.name} 海月离`);
+    const user = await GetUser(ctx, session.event.user.id, session.platform);
+    if(!user.nickname) {
+      session.send(`\n检测到这是你第一次认领水母箱，请先@我输入昵称，让机器人知道如何称呼你\n例如：@${session.bot.user.name} 海月离\n\n设置完成后你可以通过“/叫我 xx”来更新`);
       const name = await session.prompt();
       if (!name) return { success: false };
-      await ctx.database.set('mzk_jellyfish_box', box.id, {
-        user_nick: name
+      await ctx.database.set('mzk_user', user.id, {
+        nickname: name
       });
       return { success: true, name };
     }
@@ -136,7 +136,7 @@ export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, ses
   // 更新时间
   jellyfish_box.last_catch_time = new Date(Date.now());
   // 写入数据库
-  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
     last_catch_time: jellyfish_box.last_catch_time,
     jellyfish: jellyfish_box.jellyfish
   });
@@ -164,16 +164,17 @@ export const CommandJellyfishBoxCatalogue = async (config: Config, ctx: Context,
 };
 
 export const CommandJellyfishBoxSetStyle = async (config: Config, ctx: Context, session: Session, style: string) => {
+  return '暂不支持更换样式';
   const uid = session.event.user.id;
   const platform = session.platform;
   const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
   if(style === 'normal' || style === '默认') {
-    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
       draw_style: 'normal'
     });
     return '已切换为默认样式';
   } else if (style === 'pixel' || style === '像素') {
-    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
       draw_style: 'pixel'
     });
     return '已切换为像素样式';
@@ -182,17 +183,32 @@ export const CommandJellyfishBoxSetStyle = async (config: Config, ctx: Context, 
   }
 };
 
+export const GetUser = async (ctx: Context, id: string, platform: string) : Promise<User> => {
+  const user = await ctx.database.get('mzk_user', {
+    platform: platform,
+    user_id: id
+  });
+
+  if (_.size(user) === 0) {
+    return await ctx.database.create('mzk_user', {
+      platform: platform,
+      user_id: id
+    });
+  }
+  return user[0];
+};
+
 
 export const GetJellyfishBox = async (ctx: Context, id: string, platform: string) => {
   let query: JellyfishBox[] = [];
+  const user = await GetUser(ctx, id, platform);
+
   query = await ctx.database.get('mzk_jellyfish_box', {
-    user_id: id,
-    platform: platform
+    user_id: user.id
   });
   if (query.length === 0) {
     query.push(await ctx.database.create('mzk_jellyfish_box', {
-      user_id: id,
-      platform: platform,
+      user_id: user.id,
       last_catch_time: new Date(Date.now() - 2 * 60 * 60 * 1000),
       last_refresh_time: new Date(Date.now() - 2 * 60 * 60 * 1000),
       jellyfish: [],
@@ -318,7 +334,7 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
   // 更新时间
   if (_.size(events) !== 0) jellyfish_box.last_refresh_time = new Date(Date.now() );
   // 写入数据库
-  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
     last_refresh_time: jellyfish_box.last_refresh_time,
     jellyfish: jellyfish_box.jellyfish
   });
@@ -477,7 +493,7 @@ export async function CommandJellyfishBoxDrop(config: Config, ctx: Context, sess
   }
 
   // 接下来只需要保存到数据库就完事了
-  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.id, {
+  await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
     jellyfish: jellyfish_box.jellyfish
   });
 

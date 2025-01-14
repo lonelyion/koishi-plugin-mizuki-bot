@@ -3,7 +3,7 @@ import { Context, Logger, Session } from 'koishi';
 import type { Canvas, CanvasRenderingContext2D } from '@ltxhhz/koishi-plugin-skia-canvas'; //引入类型
 import { h } from 'koishi';
 import * as path from 'path';
-import { GetJellyfishBox } from './jellyfish_box';
+import { GetJellyfishBox } from '../commands/jellyfish_box';
 import _ from 'lodash';
 
 const logger = new Logger('mizuki-bot-test');

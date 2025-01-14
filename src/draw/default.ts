@@ -124,7 +124,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
 
   // 绘制用户头像
   const defaultUserAvatar = path.join(themeRoot, 'default_avatar.png');
-  const avatarImage = await loadImage(session.event.user.avatar ?? defaultUserAvatar);
+  const avatarImage = await loadImage(session.event.user.avatar || defaultUserAvatar);
   const avatarSize = 96;
   const avatarCanvas = new Canvas(avatarSize, avatarSize);
   const avatarCtx = avatarCanvas.getContext('2d');
@@ -137,7 +137,8 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
   ctx.drawCanvas(avatarCanvas, 80, 64);
 
   // 绘制用户名
-  const username = jellyfishBox.user_nick ?? session.event.user.name;
+  const user = await koishiCtx.database.get('mzk_user', jellyfishBox.user_id);
+  const username = user[0].nickname || session.event.user.name;
   ctx.font = '48px noto-sans-sc-bold';
   ctx.fillStyle = config.theme.name;
   ctx.textAlign = 'left';
@@ -491,7 +492,12 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
   ctx.fillText(date, 48, 54);
 
   // 标题
-  const username = jellyfishBox?.user_nick || session.event.user.name;
+  let username = '';
+  if(flag) {
+    const user = await koishiCtx.database.get('mzk_user', jellyfishBox.user_id);
+    username = user[0].nickname || session.event.user.name;
+  }
+  
   ctx.fillStyle = config.theme.title;
   ctx.font = '32px noto-sans-sc-bold';
   ctx.textAlign = 'left';

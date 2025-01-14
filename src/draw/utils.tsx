@@ -1,9 +1,9 @@
-import { Context } from "koishi";
-import _ from "lodash";
+import { Context } from 'koishi';
+import _ from 'lodash';
 
 export const ImageBuffer = async ({ buffer }: { buffer: Buffer }) => {
   return <img src={'data:image/png;base64,' + buffer.toString('base64')} />;
-}
+};
 
 export const ProcessJellyfishImage = async (ctx: Context, image_path: string) => {
   const { Canvas, loadImage } = ctx.skia;
@@ -43,4 +43,4 @@ export const ProcessJellyfishImage = async (ctx: Context, image_path: string) =>
   const crop_ctx = crop_canvas.getContext('2d');
   crop_ctx.drawImage(image, left, top, crop_width, crop_height, dx, dy, crop_width, crop_height);
   return crop_canvas;
-}
+};

@@ -9,10 +9,11 @@ import {
   CommandJellyfishBoxSetStyle
 } 
   from './commands/jellyfish_box';
-import { CommandTest } from './commands/test';
+import { CommandTest } from './draw/test';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import axios from 'axios';
+//import _ from 'lodash';
 export const name = 'mizuki-bot';
 
 export const inject = {
@@ -81,8 +82,8 @@ export const Config: Schema<Config> = Schema.object({
       good: Schema.string().role('color').default('#46eca4').description('GOOD'),
       great: Schema.string().role('color').default('#f15fb2').description('GREAT'),
       perfect: Schema.string().role('color').default('#935ff1').description('PERFECT'),
-      special: Schema.string().role('color').default('#5a96ef').description('SPECIAL'),
-    }).description('水母稀有度颜色组'),
+      special: Schema.string().role('color').default('#5a96ef').description('SPECIAL')
+    }).description('水母稀有度颜色组')
   }).description('默认主题'),
 
   compress: Schema.boolean().default(false).description('是否压缩图片, 启用会使图片质量下降, 大幅提高速度, 体积减小从而减少图片传输时所需的时间, 关闭会提高画面清晰度'),
@@ -160,7 +161,7 @@ export function apply(ctx: Context) {
         });
       });
       jellyfish_box.jellyfish = new_jellyfish;
-      await ctx.database.set('mzk_jellyfish_box', { id: jellyfish_box.id }, {
+      await ctx.database.set('mzk_jellyfish_box', { user_id: jellyfish_box.user_id }, {
         jellyfish: jellyfish_box.jellyfish
       });
     }
