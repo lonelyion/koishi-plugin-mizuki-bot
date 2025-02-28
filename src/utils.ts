@@ -1,5 +1,7 @@
 import _ from 'lodash';
 
+
+
 function NormalizeProbabilities(probabilities: number[]): number[] {
   const total = probabilities.reduce((sum, prob) => sum + prob, 0);
   return probabilities.map(prob => prob / total);

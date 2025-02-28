@@ -8,3 +8,8 @@
 打算用Koishi重构 SuperGuGuGu/nonebot_plugin_kanonbot 的水母箱功能
 
 然后再加一些其他的功能
+
+
+部分代码引用：
+
+> enpitsuLin/skland-daily-attendance 森空岛校验

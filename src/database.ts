@@ -14,6 +14,10 @@ export interface User {
   platform: string,
   user_id: string,
   nickname: string,
+  skland_cred: string,
+  skland_uid: string,
+  skland_token: string,
+  skland_last_refresh: Date
 }
 
 export interface Jellyfish {
@@ -70,7 +74,11 @@ export function apply(ctx: Context) {
     id: 'unsigned',
     platform: 'string',
     user_id: 'string',
-    nickname: 'string'
+    nickname: 'string',
+    skland_cred: 'string',
+    skland_uid: 'string',
+    skland_token: 'string',
+    skland_last_refresh: 'timestamp'
   }, {
     primary: 'id',
     autoInc: true

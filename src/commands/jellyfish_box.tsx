@@ -1,10 +1,11 @@
 import { Config } from '..';
 import { Context, Logger, Session } from 'koishi';
-import { Jellyfish, JellyfishBox, User } from '../database';
+import { Jellyfish, JellyfishBox } from '../database';
 import _ from 'lodash';
 import { RandomChoose, RandomChooseWithWeights } from '../utils';
 import { DrawDefaultThemeBox, DrawDefaultThemeStatistics } from '../draw/default';
 import { ImageBuffer } from '../draw/utils';
+import { GetUser } from '../user/user';
 
 
 const logger = new Logger('mizuki-bot-jellyfish');
@@ -181,21 +182,6 @@ export const CommandJellyfishBoxSetStyle = async (config: Config, ctx: Context, 
   } else {
     return '找不到该样式，请检查名称';
   }
-};
-
-export const GetUser = async (ctx: Context, id: string, platform: string) : Promise<User> => {
-  const user = await ctx.database.get('mzk_user', {
-    platform: platform,
-    user_id: id
-  });
-
-  if (_.size(user) === 0) {
-    return await ctx.database.create('mzk_user', {
-      platform: platform,
-      user_id: id
-    });
-  }
-  return user[0];
 };
 
 

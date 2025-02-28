@@ -9,15 +9,19 @@ import {
   CommandJellyfishBoxSetStyle
 } 
   from './commands/jellyfish_box';
-import { CommandTest } from './draw/test';
+import { CommandTest } from './commands/testCommand';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import axios from 'axios';
+import { CommandCallMe } from './commands/callme';
+import { CommandSklandAttendent, CommandSklandLogin } from './commands/skland';
+import {} from 'koishi-plugin-cron';
+import { RefreshToken } from './skland/api';
 //import _ from 'lodash';
 export const name = 'mizuki-bot';
 
 export const inject = {
-  required: ['database', 'http', 'skia']
+  required: ['database', 'cron', 'skia']
   //optional: ['assets'],
 };
 
@@ -112,11 +116,11 @@ export function apply(ctx: Context) {
         fs.writeFile(local_version_file, '0', { encoding: 'utf-8' });
       });
 
-    ctx.http.get(`${cdn}/version.txt`)
+    axios.get(`${cdn}/version.txt`)
       .then(res => {
-        logger.info(`当前本地资源版本： ${local_version}, 最新: ${res}`);
+        logger.info(`当前本地资源版本： ${local_version}, 最新: ${res.data}`);
         if ((Number(res) > Number(local_version))) {
-          ctx.emit('mizuki/resource_update', res);
+          ctx.emit('mizuki/resource_update', res.data);
         }
       })
       .catch(err => {
@@ -169,6 +173,10 @@ export function apply(ctx: Context) {
     logger.info('已更新水母箱数据库');
   });
 
+  ctx.command('叫我 <name:string>').action(async ({ session }, name) => {
+    return await CommandCallMe(ctx, session, name);
+  });
+
   ctx.command('水母箱')
     .action(async ({ session }) => {
       logger.info(`test: ${JSON.stringify(session.event)}`);
@@ -199,8 +207,35 @@ export function apply(ctx: Context) {
       return await CommandJellyfishBoxDrop(ctx.config, ctx, session, [kind, ...rest]);
     });
 
+  
+  ctx.command('森空岛.登录').alias('登录').action(async ({ session }) => {
+    return await CommandSklandLogin(ctx, session);
+  });
+
+  ctx.command('森空岛.签到').alias('森空岛签到').action(async ({ session }) => {
+    return await CommandSklandAttendent(ctx, session);
+  });
+
+  ctx.cron('*/5 * * * *', async () => {
+    //logger.info('开始刷新用户Token');
+    const users = await ctx.database.get('mzk_user', {});
+    users.forEach(async (user) => {
+      if (!user.skland_token) return;
+      //logger.info(`正在刷新 ${user.nickname ?? user.id} 的Token: ${user.skland_token}`);
+      if (Date.now() - new Date(user.skland_last_refresh).getTime() > 30 * 60 * 1000) {
+        const token = await RefreshToken(user.skland_cred, user.skland_token);
+        if (token) {
+          await ctx.database.set('mzk_user', { id: user.id }, {
+            skland_token: token,
+            skland_last_refresh: new Date(Date.now())
+          });
+        }
+      }
+    });
+    logger.info('刷新用户Token完成');
+  });
 
   ctx.command('测试').alias('a').action(async ({ session }) => {
-    return await CommandTest(ctx.config, ctx, session);
+    return await CommandTest(ctx, session);
   });
 };
