@@ -132,7 +132,7 @@ export function apply(ctx: Context) {
 
   ctx.command('水母箱')
     .action(async ({ session }) => {
-      logger.info(`test: ${JSON.stringify(session.event)}`);
+      //logger.info(`test: ${JSON.stringify(session.event)}`);
       return await CommandJellyfishBox(ctx.config, ctx, session);
     });
 

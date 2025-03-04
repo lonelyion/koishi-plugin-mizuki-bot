@@ -75,9 +75,9 @@ export const CommandSklandLogin = async (ctx: Context, session: Session) => {
     skland_token: data.token
   });
 
-  const bindings = await GetBinding(data.cred, data.token);
+  await GetBinding(data.cred, data.token);
 
-  return `登录成功，cred: ${data.cred} token: ${data.token} userId: ${data.userId} binding: ${JSON.stringify(bindings)}`;
+  return '登录成功';
 };
 
 export const CommandSklandAttendent = async (ctx: Context, session: Session) => {
