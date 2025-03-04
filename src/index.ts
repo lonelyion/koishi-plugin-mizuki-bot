@@ -12,11 +12,12 @@ import {
 import { CommandTest } from './commands/testCommand';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import axios from 'axios';
+//import axios from 'axios';
 import { CommandCallMe } from './commands/callme';
 import { CommandSklandAttendent, CommandSklandLogin } from './commands/skland';
 import {} from 'koishi-plugin-cron';
-import { RefreshToken } from './skland/api';
+import { jellyfishBoxUpdate, jellyfishBoxCheck, arknightsDataUpdate, arknightsDataCheck, RefreshUserTokens } from './update';
+import { CommandArknightsOperatorGuessSkin } from './commands/arknights';
 //import _ from 'lodash';
 export const name = 'mizuki-bot';
 
@@ -29,7 +30,8 @@ const logger = new Logger('mizuki-bot');
 
 declare module 'koishi' {
   interface Events {
-    'mizuki/resource_update'(...args: string[]): void
+    'mizuki/resource_update'(...args: string[]): void,
+    'mizuki/arknights_update'(...args: string[]): void
   }
 };
 
@@ -57,14 +59,13 @@ export interface Config {
     }
   },
   remote: string,
-  test_account: string,
-  compress: boolean,
-  reply: boolean,
-  at: boolean
+  arknightsGameResource: string,
+  test_account: string
 };
 
 export const Config: Schema<Config> = Schema.object({
   remote: Schema.string().role('link').default('https://bot.cdn.mizuki.ink').description('CDN地址'),
+  arknightsGameResource: Schema.string().role('link').default('https://gh.miriko.top/https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/refs/heads/main').description('明日方舟游戏资源地址'),
   test_account: Schema.string().default('Alice').description('测试账号的userId'),
 
   theme: Schema.object({
@@ -88,11 +89,7 @@ export const Config: Schema<Config> = Schema.object({
       perfect: Schema.string().role('color').default('#935ff1').description('PERFECT'),
       special: Schema.string().role('color').default('#5a96ef').description('SPECIAL')
     }).description('水母稀有度颜色组')
-  }).description('默认主题'),
-
-  compress: Schema.boolean().default(false).description('是否压缩图片, 启用会使图片质量下降, 大幅提高速度, 体积减小从而减少图片传输时所需的时间, 关闭会提高画面清晰度'),
-  reply: Schema.boolean().default(false).description('消息是否回复用户'),
-  at: Schema.boolean().default(false).description('消息是否@用户')
+  }).description('默认主题')
 });
 
 export function apply(ctx: Context) {
@@ -103,76 +100,32 @@ export function apply(ctx: Context) {
 
   ctx.plugin(Database);
 
-  ctx.on('ready', () => {
-    const cdn = ctx.config.remote;
-    const local_version_file = path.join(root, 'version.txt');
-    let local_version = '0';
-    //console.log(`local_version_file: ${local_version_file}`);
-    fs.readFile(local_version_file)
-      .then((content) => {
-        local_version = content.toString();
-      })
-      .catch(() => {
-        fs.writeFile(local_version_file, '0', { encoding: 'utf-8' });
-      });
 
-    axios.get(`${cdn}/version.txt`)
-      .then(res => {
-        logger.info(`当前本地资源版本： ${local_version}, 最新: ${res.data}`);
-        if ((Number(res) > Number(local_version))) {
-          ctx.emit('mizuki/resource_update', res.data);
-        }
-      })
-      .catch(err => {
-        logger.error('读取服务器版本失败', err.message);
-      });
+  // 事件
+  ctx.on('ready',  () => {
+    jellyfishBoxCheck(ctx, root);
+    arknightsDataCheck(ctx, root);
   });
 
   ctx.on('mizuki/resource_update', async (version: string) => {
-    const local_version_file = path.join(root, 'version.txt');
-    const cdn = ctx.config.remote;
-    const list = await axios.get(`${cdn}/list.txt`, { responseType: 'text' });
-    const files = list.data.split('\n');
-
-    for (let i = 0; i < files.length; i++) {
-      logger.info(`正在下载 ${i + 1} / ${files.length} 个文件`);
-      const name = files[i];
-      if (name === '') continue;
-      const file_path = path.join(root, name);
-      const remote = `${cdn}/${name}`;
-      //console.log(`file_path: ${file_path}, remote: ${remote}`);
-      fs.mkdir(path.dirname(file_path), { recursive: true });
-      const res = await axios.get(remote, { responseType: 'arraybuffer' });
-      await fs.writeFile(file_path, res.data);
-    }
-
-    await fs.writeFile(local_version_file, version, { encoding: 'utf-8' });
-    // 读取 data/jellyfish.json
-    await ctx.database.remove('mzk_jellyfish_meta', {});
-    await ctx.database.remove('mzk_jellyfish_event_meta', {});
-    const json = await fs.readFile(path.join(root, 'data', 'jellyfish.json'), { encoding: 'utf-8' });
-    const meta = JSON.parse(json);
-    await ctx.model.upsert('mzk_jellyfish_meta', () => meta.jellyfishes);
-    await ctx.model.upsert('mzk_jellyfish_event_meta', () => meta.events);
-
-    // 清除用户水母箱中现在已经不存在的水母id
-    const jellyfish_boxes = await ctx.database.get('mzk_jellyfish_box', {});
-    for (let i = 0; i < jellyfish_boxes.length; i++) {
-      const jellyfish_box = jellyfish_boxes[i];
-      const new_jellyfish = jellyfish_box.jellyfish.filter((jellyfish) => {
-        return meta.jellyfishes.some((meta_jellyfish) => {
-          return meta_jellyfish.id === jellyfish.id;
-        });
-      });
-      jellyfish_box.jellyfish = new_jellyfish;
-      await ctx.database.set('mzk_jellyfish_box', { user_id: jellyfish_box.user_id }, {
-        jellyfish: jellyfish_box.jellyfish
-      });
-    }
-
-    logger.info('已更新水母箱数据库');
+    jellyfishBoxUpdate(ctx, root, version);
   });
 
+  ctx.on('mizuki/arknights_update', async (version: string) => {
+    arknightsDataUpdate(ctx, root, version);
+  });
+
+  // 计划任务
+  ctx.cron('*/5 * * * *', async () => {
+    await RefreshUserTokens(ctx);
+  });
+
+  ctx.cron('0 0 */1 * *', async () => {
+    jellyfishBoxCheck(ctx, root);
+    arknightsDataCheck(ctx, root);
+  });
+
+  // 指令
   ctx.command('叫我 <name:string>').action(async ({ session }, name) => {
     return await CommandCallMe(ctx, session, name);
   });
@@ -216,23 +169,8 @@ export function apply(ctx: Context) {
     return await CommandSklandAttendent(ctx, session);
   });
 
-  ctx.cron('*/5 * * * *', async () => {
-    //logger.info('开始刷新用户Token');
-    const users = await ctx.database.get('mzk_user', {});
-    users.forEach(async (user) => {
-      if (!user.skland_token) return;
-      //logger.info(`正在刷新 ${user.nickname ?? user.id} 的Token: ${user.skland_token}`);
-      if (Date.now() - new Date(user.skland_last_refresh).getTime() > 30 * 60 * 1000) {
-        const token = await RefreshToken(user.skland_cred, user.skland_token);
-        if (token) {
-          await ctx.database.set('mzk_user', { id: user.id }, {
-            skland_token: token,
-            skland_last_refresh: new Date(Date.now())
-          });
-        }
-      }
-    });
-    logger.info('刷新用户Token完成');
+  ctx.command('猜干员.立绘').alias('立绘猜干员').action(async ({ session }) => {
+    return await CommandArknightsOperatorGuessSkin(ctx, session);
   });
 
   ctx.command('测试').alias('a').action(async ({ session }) => {
