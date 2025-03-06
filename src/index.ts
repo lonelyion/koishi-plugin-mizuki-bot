@@ -1,4 +1,4 @@
-import { Context, Logger, Schema } from 'koishi';
+import { Context, Schema } from 'koishi';
 import * as Database from './database';
 import { 
   CommandJellyfishBox, 
@@ -26,7 +26,7 @@ export const inject = {
   //optional: ['assets'],
 };
 
-const logger = new Logger('mizuki-bot');
+//const logger = new Logger('mizuki-bot');
 
 declare module 'koishi' {
   interface Events {
@@ -116,7 +116,7 @@ export function apply(ctx: Context) {
   });
 
   // 计划任务
-  ctx.cron('*/5 * * * *', async () => {
+  ctx.cron('*/15 * * * *', async () => {
     await RefreshUserTokens(ctx);
   });
 

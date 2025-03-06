@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-mizuki-bot",
   "description": "明日方舟多功能Bot",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "contributors": [
     "海月离 <ion@mizuki.ink>"
   ],

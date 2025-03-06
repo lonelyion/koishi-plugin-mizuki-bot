@@ -245,7 +245,7 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
   const jellyfish_meta = await ctx.database.get('mzk_jellyfish_meta', { id: { $in: ids } });
   
   // 更新繁殖
-  jellyfish_box.jellyfish.forEach((item) => {
+  for (const item of jellyfish_box.jellyfish) {
     let num_to_add = 0;
     const meta = jellyfish_meta.find((m) => m.id === item.id);
     if (meta.reproductive_rate === 0) return;
@@ -276,7 +276,7 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
         'description': `在水母箱中繁殖出了${num_to_add}只新的${meta.name}`
       });
     }
-  });
+  };
 
   // 更新事件
   const event_meta = await ctx.database.get('mzk_jellyfish_event_meta', {});

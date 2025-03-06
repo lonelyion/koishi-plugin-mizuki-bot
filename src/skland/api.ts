@@ -48,9 +48,9 @@ axiosInstance.interceptors.request.use(async (config) => {
   const str = `${pathname}${query}${data ? JSON.stringify(data) : ''}${timestamp}${JSON.stringify(signatureHeaders)}`;
   const hmacSha256ed = await hmacSha256(token, str);
   const sign = await md5(hmacSha256ed);
-  Object.entries(signatureHeaders).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(signatureHeaders)) {
     headers.set(key, value);
-  });
+  }
   headers.set('sign', sign);
   headers.delete('token');
   //logger.info(`after_config: ${JSON.stringify(config, null ,2)}`);

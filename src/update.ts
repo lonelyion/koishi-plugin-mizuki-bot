@@ -14,8 +14,9 @@ const ARKNIGHTS_RES_URLS = [
 export const RefreshUserTokens = async (ctx: Context) => {
   //logger.info('开始刷新用户Token');
   const users = await ctx.database.get('mzk_user', {});
-  users.forEach(async (user) => {
-    if (!user.skland_token) return;
+  let count = 0;
+  for (const user of users) {
+    if (!user.skland_token) continue;
     //logger.info(`正在刷新 ${user.nickname ?? user.id} 的Token: ${user.skland_token}`);
     if (Date.now() - new Date(user.skland_last_refresh).getTime() > 30 * 60 * 1000) {
       const token = await RefreshToken(user.skland_cred, user.skland_token);
@@ -24,10 +25,12 @@ export const RefreshUserTokens = async (ctx: Context) => {
           skland_token: token,
           skland_last_refresh: new Date(Date.now())
         });
+        count++;
       }
+      await new Promise(resolve => setTimeout(resolve, 10)); //wait 10ms
     }
-  });
-  logger.info('刷新用户Token完成');
+  }
+  logger.info(`刷新用户Token完成，共刷新了${count}个`);
 };
 
 

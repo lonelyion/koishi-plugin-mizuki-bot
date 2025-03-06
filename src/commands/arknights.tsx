@@ -63,7 +63,7 @@ export const CommandArknightsOperatorGuessSkin = async (ctx: Context, session: S
   const skinBase64 = await skinData.toDataURL('png');
 
   await session.send(<><img src={skinBase64} />
-    博士，这是哪位干员的立绘呢？发送干员名字猜一猜吧！
+    博士，这是哪位干员的立绘呢？直接发送干员名字猜一猜吧！
   </>);
 
   let timeout = false;
@@ -99,27 +99,27 @@ export const CommandArknightsOperatorGuessSkin = async (ctx: Context, session: S
     }
   }
   
-  timers.forEach(clearTimeout);
-  if (flag) {
-    const { loadImage } = ctx.skia;
-    const image = await loadImage(filePath);
-    let dataUrl = '';
-    // reduce the image to maximum 1080px width
-    if (image.width > 1080) {
-      const ratio = 1080 / image.width;
-      const newWidth = 1080;
-      const newHeight = image.height * ratio;
-      const canvas = new ctx.skia.Canvas(newWidth, newHeight);
-      const skiaCtx = canvas.getContext('2d');
-      skiaCtx.drawImage(image, 0, 0, newWidth, newHeight);
-      dataUrl = await canvas.toDataURL('png', { quality: 0.8 });
-    } else {
-      const canvas = new ctx.skia.Canvas(image.width, image.height);
-      const skiaCtx = canvas.getContext('2d');
-      skiaCtx.drawImage(image, 0, 0);
-      dataUrl = await canvas.toDataURL('png', { quality: 0.8 });
-    }
-    return <><img src={dataUrl} />恭喜博士回答正确！这是{char.name}的{skin.displaySkin.skinGroupName}皮肤</>;
+  for (const timer of timers) {
+    clearTimeout(timer);
   }
-  return '杂鱼博士没有猜到，正确答案是：' + char.name;
+  const { loadImage } = ctx.skia;
+  const image = await loadImage(filePath);
+  let dataUrl = '';
+  // reduce the image to maximum 1080px width
+  if (image.width > 1080) {
+    const ratio = 1080 / image.width;
+    const newWidth = 1080;
+    const newHeight = image.height * ratio;
+    const canvas = new ctx.skia.Canvas(newWidth, newHeight);
+    const skiaCtx = canvas.getContext('2d');
+    skiaCtx.drawImage(image, 0, 0, newWidth, newHeight);
+    dataUrl = await canvas.toDataURL('png', { quality: 0.8 });
+  } else {
+    const canvas = new ctx.skia.Canvas(image.width, image.height);
+    const skiaCtx = canvas.getContext('2d');
+    skiaCtx.drawImage(image, 0, 0);
+    dataUrl = await canvas.toDataURL('png', { quality: 0.8 });
+  }
+  return flag ? <><img src={dataUrl} />恭喜博士回答正确！这是{char.name}的{skin.displaySkin.skinGroupName}皮肤</> : 
+    <><img src={dataUrl} />杂鱼博士没有猜到，正确答案是{char.name}（{skin.displaySkin.skinGroupName}）</>;
 };
