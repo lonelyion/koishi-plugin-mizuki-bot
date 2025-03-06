@@ -116,11 +116,11 @@ export function apply(ctx: Context) {
   });
 
   // 计划任务
-  ctx.cron('*/15 * * * *', async () => {
+  ctx.cron('*/5 * * * *', async () => {
     await RefreshUserTokens(ctx);
   });
 
-  ctx.cron('0 0 */1 * *', async () => {
+  ctx.cron('5 */2 * * *', async () => {
     jellyfishBoxCheck(ctx, root);
     arknightsDataCheck(ctx, root);
   });

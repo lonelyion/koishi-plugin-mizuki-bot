@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-mizuki-bot",
   "description": "明日方舟多功能Bot",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "contributors": [
     "海月离 <ion@mizuki.ink>"
   ],
@@ -14,7 +14,8 @@
   "license": "MIT",
   "keywords": [
     "arknights",
-    "mizuki"
+    "mizuki",
+    "jellyfish"
   ],
   "scripts": {
     "dev": "yarn workspace koishi-app run dev"
@@ -36,6 +37,7 @@
   },
   "dependencies": {
     "@satorijs/element": "^3.1.7",
+    "async-mutex": "^0.5.0",
     "axios": "^1.7.8",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",

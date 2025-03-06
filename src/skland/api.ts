@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { getDid } from './helper';
 import { stringifyQuery } from 'ufo';
 import { hmacSha256, md5 } from './crypto';
-//import _ from 'lodash';
+import { Mutex } from 'async-mutex';
 
 const logger = new Logger('mizuki-bot-skland');
 const appCode = '4ca99fa6b56cc2ba';
@@ -14,6 +14,7 @@ const WHITE_LIST = [
   '/api/v1/user/check'
 ];
 
+const mutex = new Mutex();
 const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
@@ -25,6 +26,8 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use(async (config) => {
+  // 参考了enpitsuLin/skland-daily-attendance
+  
   const MILLISECOND_PER_SECOND = 1000;
   const { url, headers, data, params } = config;
   // there's no baseURL in config
@@ -59,26 +62,25 @@ axiosInstance.interceptors.request.use(async (config) => {
   return Promise.reject(error);
 });
 
-export const GenerateQRCode = async () => {
+export const GenerateQRCode = () => mutex.runExclusive(async () => {
   // https://as.hypergryph.com/general/v1/gen_scan/login
-  const res = await axiosInstance.post('https://as.hypergryph.com/general/v1/gen_scan/login', {
-    appCode
-  });
-
   /* res.data
     {
       "data": {
-          "scanId": "xxx",
-          "scanUrl": "hypergryph://scan_login?scanId=xxx"
+        "scanId": "xxx",
+        "scanUrl": "hypergryph://scan_login?scanId=xxx"
       },
       "msg": "OK",
       "status": 0,
       "type": "A"
     }
   */
+  const { data } = await axiosInstance.post('https://as.hypergryph.com/general/v1/gen_scan/login', {
+    appCode
+  });
 
-  const scanUrl = res.data.data.scanUrl;
-  const scanId = res.data.data.scanId;
+  const scanUrl = data.data.scanUrl;
+  const scanId = data.data.scanId;
 
   // 生成二维码
   const qrData = await QRCode.toDataURL(scanUrl, {
@@ -88,28 +90,26 @@ export const GenerateQRCode = async () => {
 
 
   return { scanId, qrData };
-};
+});
 
-export const GetScanStatus = async (scanId: string) => {
+export const GetScanStatus = (scanId: string) => mutex.runExclusive(async () => {
+  /* res.data
+    {"msg":"未扫码","status":100,"type":"A"}
+    {"msg":"已扫码待确认","status":101,"type":"A"}
+    {"msg":"已失效","status":102,"type":"A"}
+    {"data":{"scanCode":"xxx"},"msg":"OK","status":0,"type":"A"}
+  */
   const scanStatusUrl = `https://as.hypergryph.com/general/v1/scan_status?scanId=${scanId}`;
   try {
     const res = await axiosInstance.get(scanStatusUrl);
-
-    /* res.data
-        {"msg":"未扫码","status":100,"type":"A"}
-        {"msg":"已扫码待确认","status":101,"type":"A"}
-        {"msg":"已失效","status":102,"type":"A"}
-        {"data":{"scanCode":"xxx"},"msg":"OK","status":0,"type":"A"}
-    */
-
     return { code: res.data.status, scanCode: res.data?.data?.scanCode || null };
   } catch (error) {
     logger.error(error);
     return { code: -1, scanCode: null };
   }
-};
+});
 
-export const GetTokenByScanCode = async (scanCode: string): Promise<string> => {
+export const GetTokenByScanCode = (scanCode: string): Promise<string> => mutex.runExclusive(async () => {
   const tokenByScanCodeUrl = 'https://as.hypergryph.com/user/auth/v1/token_by_scan_code';
   try {
     const tokenRes = await axiosInstance.post(tokenByScanCodeUrl, {
@@ -125,9 +125,9 @@ export const GetTokenByScanCode = async (scanCode: string): Promise<string> => {
     logger.error(error);
     return null;
   }
-};
+});
 
-export const ValidateHyperGryphByToken = async (token: string) => {
+export const ValidateHyperGryphByToken = (token: string) => mutex.runExclusive(async () => {
   const url = `https://as.hypergryph.com/user/info/v1/basic?token=${token}`;
   try {
     const validateRes = await axiosInstance.get(url);
@@ -136,9 +136,9 @@ export const ValidateHyperGryphByToken = async (token: string) => {
     logger.error(`token: ${token}\nerror:${error}`);
     return -1;
   }
-};
+});
 
-export const GetOAuthGrantCode = async (token: string) => {
+export const GetOAuthGrantCode = (token: string) => mutex.runExclusive(async () => {
   //当请求成功时，会返回状态码0，以及一个包含授权代码和用户ID的JSON数据。
   const url = 'https://as.hypergryph.com/user/oauth2/v2/grant';
   try {
@@ -169,9 +169,9 @@ export const GetOAuthGrantCode = async (token: string) => {
     logger.error(`token: ${token}\nerror:${error}`);
     return null;
   }
-};
+});
 
-export const GenerateCredByCode = async (code: string) => {
+export const GenerateCredByCode = (code: string) => mutex.runExclusive(async () => {
   const url = 'https://zonai.skland.com/web/v1/user/auth/generate_cred_by_code';
   try {
     const res = await axiosInstance.post(url, {
@@ -207,9 +207,9 @@ export const GenerateCredByCode = async (code: string) => {
     logger.error(`code: ${code}\nerror:${error}`);
     return null;
   }
-};
+});
 
-export const CheckCred = async (cred: string) => {
+export const CheckCred = (cred: string) => mutex.runExclusive(async () => {
   const url = 'https://zonai.skland.com/api/v1/user/check';
   try {
     const res = await axiosInstance.get(url, {
@@ -238,30 +238,31 @@ export const CheckCred = async (cred: string) => {
     logger.error(`cred: ${cred}\nerror:${error}`);
     return null;
   }
-};
+});
 
-export const RefreshToken = async (cred, token) => {
+export const RefreshToken = (cred: string, token: string) => mutex.runExclusive(async () => {
   try {
     const url = 'https://zonai.skland.com/api/v1/auth/refresh';
     const { data } = await axiosInstance.get(url, {
       headers: {
+        cred,
         Cookie: `SK_OAUTH_CRED_KEY_CK=${cred}`
       }
     });
-    //logger.info(`刷新token 响应数据${JSON.stringify(data)} token: ${data.data.token}`);
+    logger.info(`刷新token 响应数据${JSON.stringify(data)} token: ${data.data.token}`);
     return data.data.token;
   } catch (error) {
     logger.error(`刷新token: ${token}\nerror:${error}`);
     return null;
   };
-};
+});
 
 /**
  * 通过登录凭证和森空岛用户的 token 获取角色绑定列表
  * @param cred 鹰角网络通行证账号的登录凭证
  * @param token 森空岛用户的 token
  */
-export const GetBinding = async (cred: string, token: string) => {
+export const GetBinding = (cred: string, token: string) => mutex.runExclusive(async () => {
   const url = 'https://zonai.skland.com/api/v1/game/player/binding';
   try {
     const res = await axiosInstance.get(url, {
@@ -276,9 +277,9 @@ export const GetBinding = async (cred: string, token: string) => {
     logger.error(`cred: ${cred} token: ${token}\nerror:${error}`);
     return error.message;
   }
-};
+});
 
-export const Attendent = async (cred: string, token: string) => {
+export const Attendent = (cred: string, token: string) => mutex.runExclusive(async () => {
   const getPrivacyName = (name: string) => {
     return name.split('')
       .map((s, i) => (i > 0 && i < name.length - 1) ? '*' : s)
@@ -327,7 +328,7 @@ export const Attendent = async (cred: string, token: string) => {
     let successAttendance = 0;
     let allMsg = '【森空岛每日签到】\n';
 
-    for(const character of characters) {
+    for (const character of characters) {
       try {
         const data = await attendance(character.uid, character.channelMasterId);
         if (data) {
@@ -370,4 +371,4 @@ export const Attendent = async (cred: string, token: string) => {
     logger.error(`每日签到 error:${error}`);
     return error.message;
   }
-};
+});

@@ -30,7 +30,7 @@ export const RefreshUserTokens = async (ctx: Context) => {
       await new Promise(resolve => setTimeout(resolve, 10)); //wait 10ms
     }
   }
-  logger.info(`刷新用户Token完成，共刷新了${count}个`);
+  if(count !== 0) logger.info(`刷新用户Token完成，共刷新了${count}个`);
 };
 
 
