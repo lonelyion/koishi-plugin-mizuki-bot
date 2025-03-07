@@ -10,19 +10,18 @@ export const CropSkin = async (ctx: Context, skinFilePath: string, cropPercent: 
   //const canvas = new Canvas(image.width, image.height);
   //const skiaCtx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
-  const cropWidth = image.width * cropPercent * 0.01;
-  const cropHeight = image.height * cropPercent * 0.01;
+  const cropSize = Math.max(image.width, image.height) * cropPercent / 100;
 
-  const crop = (width, height) => {
-    const x = random(0, image.width - width);
-    const y = random(0, image.height - height);
+  const crop = (size) => {
+    const x = random(0, image.width - size);
+    const y = random(0, image.height - size);
 
-    const cropCanvas = new Canvas(width, height);
+    const cropCanvas = new Canvas(size, size);
     const cropCtx = cropCanvas.getContext('2d') as CanvasRenderingContext2D;
-    cropCtx.drawImage(image, x, y, width, height, 0, 0, width, height);
+    cropCtx.drawImage(image, x, y, size, size, 0, 0, size, size);
     // check the ratio of transparent pixels
-    const imgData = cropCtx.getImageData(0, 0, width, height);
-    const totalPixels = width * height;
+    const imgData = cropCtx.getImageData(0, 0, size, size);
+    const totalPixels = size * size;
     let transparentPixels = 0;
     for (let i = 0; i < imgData.data.length; i += 4) {
       if (imgData.data[i + 3] === 0) {
@@ -31,10 +30,10 @@ export const CropSkin = async (ctx: Context, skinFilePath: string, cropPercent: 
     }
     const ratio = transparentPixels / totalPixels;
     if (ratio > 0.3) 
-      return crop(width, height);
+      return crop(size);
     else 
       return cropCanvas;
   };
 
-  return crop(cropWidth, cropHeight);
+  return crop(cropSize);
 };

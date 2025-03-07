@@ -6,6 +6,8 @@ import { stringifyQuery } from 'ufo';
 import { hmacSha256, md5 } from './crypto';
 import { Mutex } from 'async-mutex';
 
+// 提供API接口，使用axios应该上锁，所以本文件里的函数不能互相调用
+
 const logger = new Logger('mizuki-bot-skland');
 const appCode = '4ca99fa6b56cc2ba';
 const WHITE_LIST = [
@@ -27,7 +29,7 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(async (config) => {
   // 参考了enpitsuLin/skland-daily-attendance
-  
+
   const MILLISECOND_PER_SECOND = 1000;
   const { url, headers, data, params } = config;
   // there's no baseURL in config
@@ -232,7 +234,8 @@ export const CheckCred = (cred: string) => mutex.runExclusive(async () => {
     if (res.data.code === 0) {
       return res.data.data;
     } else {
-      throw new Error(res.data.message);
+      logger.error(`检查cred失败: ${cred}\n响应：${JSON.stringify(res.data)}`);
+      return null;
     }
   } catch (error) {
     logger.error(`cred: ${cred}\nerror:${error}`);
@@ -249,7 +252,7 @@ export const RefreshToken = (cred: string, token: string) => mutex.runExclusive(
         Cookie: `SK_OAUTH_CRED_KEY_CK=${cred}`
       }
     });
-    logger.info(`刷新token 响应数据${JSON.stringify(data)} token: ${data.data.token}`);
+    //logger.info(`刷新token 响应数据${JSON.stringify(data)} token: ${data.data.token}`);
     return data.data.token;
   } catch (error) {
     logger.error(`刷新token: ${token}\nerror:${error}`);
@@ -279,96 +282,39 @@ export const GetBinding = (cred: string, token: string) => mutex.runExclusive(as
   }
 });
 
-export const Attendent = (cred: string, token: string) => mutex.runExclusive(async () => {
-  const getPrivacyName = (name: string) => {
-    return name.split('')
-      .map((s, i) => (i > 0 && i < name.length - 1) ? '*' : s)
-      .join('');
-  };
-  const attendance = async (uid, gameId) => {
-    const url = 'https://zonai.skland.com/api/v1/game/attendance';
-    const { data: record } = await axiosInstance.get(url, {
+export const GameAttendance = (cred: string, token: string, uid: string, gameId: string) => mutex.runExclusive(async () => {
+  const url = 'https://zonai.skland.com/api/v1/game/attendance';
+  const { data: record } = await axiosInstance.get(url, {
+    headers: {
+      token,
+      cred
+    },
+    params: {
+      uid: uid,
+      gameId: gameId
+    }
+  });
+
+  const todayAttended = record.data.records.find((i) => {
+    const today = new Date().setHours(0, 0, 0, 0);
+    return new Date(Number(i.ts) * 1000).setHours(0, 0, 0, 0) === today;
+  });
+
+  if (todayAttended) {
+    return false;
+  } else {
+    //logger.info(`这里是一条测试 ${token} ${cred}`);
+    const { data } = await axiosInstance.post(url, {
+      uid,
+      gameId
+    }, {
       headers: {
         token,
-        cred
-      },
-      params: {
-        uid: uid,
-        gameId: gameId
+        cred,
+        'Content-Type': 'application/json'
       }
     });
-
-    const todayAttended = record.data.records.find((i) => {
-      const today = new Date().setHours(0, 0, 0, 0);
-      return new Date(Number(i.ts) * 1000).setHours(0, 0, 0, 0) === today;
-    });
-
-    if (todayAttended) {
-      return false;
-    } else {
-      //logger.info(`这里是一条测试 ${token} ${cred}`);
-      const { data } = await axiosInstance.post(url, {
-        uid,
-        gameId
-      }, {
-        headers: {
-          token,
-          cred,
-          'Content-Type': 'application/json'
-        }
-      });
-      //logger.info(`测试：${JSON.stringify(data)}`);
-      return data;
-    }
-  };
-  try {
-    const bindings = await GetBinding(cred, token);
-    //logger.info(bindings);
-    const characters = bindings.data.list.map(i => i.bindingList).flat();
-    let successAttendance = 0;
-    let allMsg = '【森空岛每日签到】\n';
-
-    for (const character of characters) {
-      try {
-        const data = await attendance(character.uid, character.channelMasterId);
-        if (data) {
-          if (data.code === 0 && data.message === 'OK') {
-            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到成功${`, 获得了${data.data.awards.map(a => `「${a.resource.name}」${a.count}个`).join(',')}`}`;
-            allMsg += `${msg}\n`;
-            successAttendance++;
-          }
-          else {
-            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到失败${`, 错误消息: ${data.message}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``}`;
-            allMsg += `${msg}\n`;
-          }
-        }
-        else {
-          const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 今天已经签到过了`;
-          allMsg += `${msg}\n`;
-        }
-      }
-      catch (error) {
-        if (error.response && error.response.status === 403) {
-          allMsg += `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 今天已经签到过了\n`;
-        }
-        else {
-          allMsg += `签到过程中出现未知错误: ${error.message}\n`;
-          logger.error(`签到过程中出现未知错误: ${error.message}\n${error.stack}`);
-          return;
-        }
-      }
-    };
-
-    if (successAttendance !== 0) {
-      allMsg += `成功签到 ${successAttendance} 个角色`;
-    } else {
-      allMsg += '今天已经签到过了';
-    }
-
-    return allMsg;
-
-  } catch (error) {
-    logger.error(`每日签到 error:${error}`);
-    return error.message;
+    //logger.info(`测试：${JSON.stringify(data)}`);
+    return data;
   }
 });

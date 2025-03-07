@@ -1,4 +1,4 @@
-# koishi-plugin-mizuki-bot
+# mizuki-bot
 
 ✨ 明日方舟多功能 BOT ✨
 

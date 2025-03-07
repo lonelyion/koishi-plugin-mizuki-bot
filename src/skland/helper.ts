@@ -6,6 +6,8 @@ import pako from 'pako';
 import { format } from 'date-fns';
 import { BROWSER_ENV, DES_RULE, SKLAND_SM_CONFIG } from './constant';
 import { encryptAES, encryptObjectByDESRules, encryptRSA, md5 } from './crypto';
+import { GetBinding, GameAttendance } from './api';
+import { Logger } from 'koishi';
 
 const crypto = webcrypto;
 
@@ -158,3 +160,63 @@ export async function getDid() {
   }
   return `B${resp.detail.deviceId}`;
 }
+
+export const Attendent = async (cred: string, token: string) => {
+  const logger = new Logger('mizuki-bot-skland');
+  const getPrivacyName = (name: string) => {
+    return name.split('')
+      .map((s, i) => (i > 0 && i < name.length - 1) ? '*' : s)
+      .join('');
+  };
+  
+  try {
+    const bindings = await GetBinding(cred, token);
+    logger.info(bindings);
+    const characters = bindings.data.list.map(i => i.bindingList).flat();
+    let successAttendance = 0;
+    let allMsg = '【森空岛每日签到】\n';
+
+    for (const character of characters) {
+      try {
+        const data = await GameAttendance(cred, token, character.uid, character.channelMasterId);
+        if (data) {
+          if (data.code === 0 && data.message === 'OK') {
+            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到成功${`, 获得了${data.data.awards.map(a => `「${a.resource.name}」${a.count}个`).join(',')}`}`;
+            allMsg += `${msg}\n`;
+            successAttendance++;
+          }
+          else {
+            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到失败${`, 错误消息: ${data.message}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``}`;
+            allMsg += `${msg}\n`;
+          }
+        }
+        else {
+          const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 今天已经签到过了`;
+          allMsg += `${msg}\n`;
+        }
+      }
+      catch (error) {
+        if (error.response && error.response.status === 403) {
+          allMsg += `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 今天已经签到过了\n`;
+        }
+        else {
+          allMsg += `签到过程中出现未知错误: ${error.message}\n`;
+          logger.error(`签到过程中出现未知错误: ${error.message}\n${error.stack}`);
+          return;
+        }
+      }
+    };
+
+    if (successAttendance !== 0) {
+      allMsg += `成功签到 ${successAttendance} 个角色`;
+    } else {
+      allMsg += '今天已经签到过了';
+    }
+
+    return allMsg;
+
+  } catch (error) {
+    logger.error(`每日签到 error:${error}`);
+    return error.message;
+  }
+};

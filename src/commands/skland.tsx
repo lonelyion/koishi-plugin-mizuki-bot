@@ -1,6 +1,9 @@
 import { Context, Session } from 'koishi';
-import { Attendent, CheckCred, GenerateCredByCode, GenerateQRCode, GetBinding, GetOAuthGrantCode, GetScanStatus, GetTokenByScanCode, ValidateHyperGryphByToken } from '../skland/api';
+import { CheckCred, GenerateCredByCode, GenerateQRCode, GetBinding, GetOAuthGrantCode, GetScanStatus, GetTokenByScanCode, ValidateHyperGryphByToken } from '../skland/api';
 import { GetUser } from '../user/user';
+import { Attendent } from '../skland/helper';
+
+//const logger = new Logger('mizuki-bot-skland');
 
 export const CommandSklandLogin = async (ctx: Context, session: Session) => {
   const { scanId, qrData } = await GenerateQRCode();
