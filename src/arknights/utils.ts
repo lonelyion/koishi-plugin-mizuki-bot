@@ -4,11 +4,10 @@ import path from 'path';
 import { CharacterSkin, CharacterTable } from './types';
 import _ from 'lodash';
 
-const logger = new Logger('mizuki-bot-arknights-loader');
-
 let charSkins: CharacterSkin[] = null, charTable: CharacterTable = null;
 
 export const loadCharacterSkins = async (ctx: Context) : Promise<CharacterSkin[]> => {
+  const logger: Logger = ctx.logger('mizuki-bot-arknights-loader');
   if (_.size(charSkins) === 0) {
     logger.info('Loading character skins');
     const root = path.join(ctx.baseDir, 'data', 'mizuki-bot');
@@ -21,6 +20,7 @@ export const loadCharacterSkins = async (ctx: Context) : Promise<CharacterSkin[]
 };
 
 export const loadCharacterTable = async (ctx: Context) => {
+  const logger: Logger = ctx.logger('mizuki-bot-arknights-loader');
   if(_.size(charTable) === 0) {
     logger.info('Loading character table');
     const root = path.join(ctx.baseDir, 'data', 'mizuki-bot');

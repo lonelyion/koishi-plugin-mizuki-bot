@@ -87,7 +87,7 @@ export const GenerateQRCode = () => mutex.runExclusive(async () => {
   // 生成二维码
   const qrData = await QRCode.toDataURL(scanUrl, {
     width: 500,
-    margin: 0
+    margin: 4
   });
 
 

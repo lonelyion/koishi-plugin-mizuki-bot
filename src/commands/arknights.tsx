@@ -7,8 +7,6 @@ import axios from 'axios';
 import { CropSkin } from '../arknights/image';
 import { random } from 'lodash';
 
-const logger = new Logger('mizuki-bot-arknights');
-
 const PROFESSION = {
   'PIONEER': '先锋',
   'WARRIOR': '近卫',
@@ -30,6 +28,7 @@ const checkFileExist = async (filePath: string) => {
 };
 
 export const CommandArknightsOperatorGuessSkin = async (ctx: Context, session: Session) => {
+  const logger: Logger = ctx.logger('mizuki-bot-arknights');
   const skins = await loadCharacterSkins(ctx);
   const chars = await loadCharacterTable(ctx);
   const skin = skins[Math.floor(Math.random() * skins.length)];

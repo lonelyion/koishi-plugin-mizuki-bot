@@ -1,4 +1,4 @@
-import { Context, Logger, Schema } from 'koishi';
+import { Context, Schema } from 'koishi';
 import * as Database from './database';
 import { 
   CommandJellyfishBox, 
@@ -25,8 +25,6 @@ export const inject = {
   required: ['database', 'cron', 'skia']
   //optional: ['assets'],
 };
-
-const logger = new Logger('mizuki-bot');
 
 declare module 'koishi' {
   interface Events {
@@ -116,7 +114,7 @@ export function apply(ctx: Context) {
   });
 
   ctx.on('message', async (session) => {
-    logger.info(`用户: ${session.userId} 发送了消息: ${session.content}`);
+    ctx.logger('mizuki-bot').debug(`用户: ${session.userId} 发送了消息: ${session.content}`);
   });
 
   // 计划任务
@@ -170,7 +168,6 @@ export function apply(ctx: Context) {
   });
 
   ctx.command('森空岛.签到').alias('森空岛签到').action(async ({ session }) => {
-    logger.info('hello?');
     return await CommandSklandAttendent(ctx, session);
   });
 

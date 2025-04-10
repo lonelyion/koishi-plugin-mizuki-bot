@@ -172,7 +172,10 @@ export const Attendent = async (cred: string, token: string) => {
   try {
     const bindings = await GetBinding(cred, token);
     logger.info(bindings);
-    const characters = bindings.data.list.map(i => i.bindingList).flat();
+    const characters = bindings.data.list
+      .filter(i => !['exa'].includes(i.appCode))  //去掉来自星尘，如果以后有新的appCode需要排除，可以加在这里
+      .map(i => i.bindingList)
+      .flat();
     let successAttendance = 0;
     let allMsg = '【森空岛每日签到】\n';
 
@@ -210,7 +213,7 @@ export const Attendent = async (cred: string, token: string) => {
     if (successAttendance !== 0) {
       allMsg += `成功签到 ${successAttendance} 个角色`;
     } else {
-      allMsg += '今天已经签到过了';
+      allMsg += '一个都没签到成功';
     }
 
     return allMsg;

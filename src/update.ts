@@ -4,8 +4,6 @@ import { Context, Logger } from 'koishi';
 import * as path from 'path';
 import { RefreshToken } from './skland/api';
 
-const logger = new Logger('mizuki-bot-update');
-
 const ARKNIGHTS_RES_URLS = [
   'gamedata/excel/character_table.json',
   'gamedata/excel/skin_table.json'
@@ -13,6 +11,7 @@ const ARKNIGHTS_RES_URLS = [
 
 export const RefreshUserTokens = async (ctx: Context) => {
   //logger.info('开始刷新用户Token');
+  const logger: Logger = ctx.logger('mizuki-bot-update');
   const users = await ctx.database.get('mzk_user', {});
   let count = 0;
   for (const user of users) {
@@ -35,6 +34,7 @@ export const RefreshUserTokens = async (ctx: Context) => {
 
 
 export const jellyfishBoxCheck = async (ctx: Context, root: string) => {
+  const logger = ctx.logger('mizuki-bot-update');
   const cdn = ctx.config.remote;
   const localVersionFile = path.join(root, 'jelly_version.txt');
   let localVersion = '0';
@@ -58,6 +58,7 @@ export const jellyfishBoxCheck = async (ctx: Context, root: string) => {
 };
 
 export const jellyfishBoxUpdate = async (ctx: Context, root: string, version: string) => {
+  const logger = ctx.logger('mizuki-bot-update');
   const localVersionFile = path.join(root, 'jelly_version.txt');
   const cdn = ctx.config.remote;
   const list = await axios.get(`${cdn}/list.txt`, { responseType: 'text' });
@@ -103,6 +104,7 @@ export const jellyfishBoxUpdate = async (ctx: Context, root: string, version: st
 };
 
 export const arknightsDataCheck = async (ctx: Context, root: string) => {
+  const logger = ctx.logger('mizuki-bot-update');
   try {
     const url = `${ctx.config.arknightsGameResource}/version`;
     const localVersionFile = path.join(root, 'arknights_version.txt');
@@ -133,6 +135,7 @@ export const arknightsDataCheck = async (ctx: Context, root: string) => {
 };
 
 export const arknightsDataUpdate = async (ctx: Context, root: string, version: string) => {
+  const logger = ctx.logger('mizuki-bot-update');
   const localVersionFile = path.join(root, 'arknights_version.txt');
   let count = 0;
   for (const url of ARKNIGHTS_RES_URLS) {

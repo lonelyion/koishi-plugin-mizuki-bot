@@ -21,8 +21,11 @@ const PromptNickname = async (ctx: Context, session: Session) => {
     const user = await GetUser(ctx, session.event.user.id, session.platform);
     if(!user.nickname) {
       session.send(`\n检测到这是你第一次认领水母箱，请先@我输入昵称，让机器人知道如何称呼你\n例如：@${session.bot.user.name} 海月离\n\n设置完成后你可以通过“/叫我 xx”来更新`);
-      const name = await session.prompt();
+      let name = await session.prompt();
       if (!name) return { success: false };
+      if(name.startsWith('/叫我 ')) {
+        name = name.slice(4);
+      }
       await ctx.database.set('mzk_user', user.id, {
         nickname: name
       });
