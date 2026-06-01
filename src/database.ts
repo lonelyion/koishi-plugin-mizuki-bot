@@ -17,7 +17,8 @@ export interface User {
   skland_cred: string,
   skland_uid: string,
   skland_token: string,
-  skland_last_refresh: Date
+  skland_last_refresh: Date,
+  skland_last_attendent?: Date
 }
 
 export interface Jellyfish {
@@ -78,7 +79,8 @@ export function apply(ctx: Context) {
     skland_cred: 'string',
     skland_uid: 'string',
     skland_token: 'string',
-    skland_last_refresh: 'timestamp'
+    skland_last_refresh: 'timestamp',
+    skland_last_attendent: 'timestamp'
   }, {
     primary: 'id',
     autoInc: true

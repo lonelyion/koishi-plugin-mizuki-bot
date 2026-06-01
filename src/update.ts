@@ -9,6 +9,8 @@ const ARKNIGHTS_RES_URLS = [
   'gamedata/excel/skin_table.json'
 ];
 
+const SKLAND_REFRESH_ACTIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : String(err);
 
 export const RefreshUserTokens = async (ctx: Context) => {
@@ -16,8 +18,16 @@ export const RefreshUserTokens = async (ctx: Context) => {
   const logger: Logger = ctx.logger('mizuki-bot-update');
   const users = await ctx.database.get('mzk_user', {});
   let count = 0;
+  let removedCount = 0;
   for (const user of users) {
     if (!user.skland_token) continue;
+
+    const lastAttendentAt = user.skland_last_attendent ? new Date(user.skland_last_attendent).getTime() : 0;
+    if (!lastAttendentAt || Date.now() - lastAttendentAt > SKLAND_REFRESH_ACTIVE_WINDOW_MS) {
+      removedCount++;
+      continue;
+    }
+
     //logger.info(`正在刷新 ${user.nickname ?? user.id} 的Token: ${user.skland_token}`);
     if (Date.now() - new Date(user.skland_last_refresh).getTime() > 30 * 60 * 1000) {
       const token = await RefreshToken(user.skland_cred, user.skland_token);
@@ -32,6 +42,7 @@ export const RefreshUserTokens = async (ctx: Context) => {
     }
   }
   if(count !== 0) logger.info(`刷新用户Token完成，共刷新了${count}个`);
+  if(removedCount !== 0) logger.info(`已从Token刷新名单中移除${removedCount}个7天未发起签到的用户`);
 };
 
 

@@ -15,7 +15,7 @@ import * as path from 'path';
 //import axios from 'axios';
 import { CommandCallMe } from './commands/callme';
 import { CommandSklandAttendent, CommandSklandLogin } from './commands/skland';
-import {} from 'koishi-plugin-cron';
+import {} from 'koishi-plugin-cron-fix';
 import { jellyfishBoxUpdate, jellyfishBoxCheck, arknightsDataUpdate, arknightsDataCheck, RefreshUserTokens } from './update';
 import { CommandArknightsOperatorGuessSkin } from './commands/arknights';
 //import _ from 'lodash';

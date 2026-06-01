@@ -97,6 +97,10 @@ export const CommandSklandAttendent = async (ctx: Context, session: Session) => 
   }
 
   const user = await GetUser(ctx, uid, session.platform);
+  await ctx.database.set('mzk_user', { id: user.id }, {
+    skland_last_attendent: new Date()
+  });
+
   //const uid = user.skland_uid;
   const cred = user.skland_cred;
   const token = user.skland_token;
