@@ -11,6 +11,48 @@ import { Logger } from 'koishi';
 
 const crypto = webcrypto;
 
+type SklandBindingCharacter = {
+  uid: string;
+  channelMasterId: string;
+  nickName: string;
+};
+
+type SklandBindingApp = {
+  appCode: string;
+  bindingList: SklandBindingCharacter[];
+};
+
+type SklandBindingResponse = {
+  data?: {
+    list?: SklandBindingApp[];
+  };
+};
+
+type SklandAward = {
+  resource: {
+    name: string;
+  };
+  count: number;
+};
+
+type SklandAttendanceResponse = {
+  code: number;
+  message: string;
+  data: {
+    awards: SklandAward[];
+  };
+};
+
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+
+const getErrorStack = (error: unknown) => error instanceof Error ? error.stack : undefined;
+
+const isStatus403Error = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false;
+  const response = (error as { response?: { status?: number } }).response;
+  return response?.status === 403;
+};
+
 export const command_header = {
   'User-Agent': 'Skland/1.21.0 (com.hypergryph.skland; build:102100065; iOS 17.6.0; ) Alamofire/5.7.1',
   'Accept-Encoding': 'gzip',
@@ -172,10 +214,10 @@ export const Attendent = async (cred: string, token: string) => {
   try {
     const bindings = await GetBinding(cred, token);
     logger.info(bindings);
-    const characters = bindings.data.list
-      .filter(i => !['exa'].includes(i.appCode))  //去掉来自星尘，如果以后有新的appCode需要排除，可以加在这里
-      .map(i => i.bindingList)
-      .flat();
+    const bindingResp = bindings as SklandBindingResponse;
+    const characters = (bindingResp.data?.list ?? [])
+      .filter((i: SklandBindingApp) => !['exa'].includes(i.appCode))  //去掉来自星尘，如果以后有新的appCode需要排除，可以加在这里
+      .flatMap((i: SklandBindingApp) => i.bindingList ?? []);
     let successAttendance = 0;
     let allMsg = '【森空岛每日签到】\n';
 
@@ -183,13 +225,14 @@ export const Attendent = async (cred: string, token: string) => {
       try {
         const data = await GameAttendance(cred, token, character.uid, character.channelMasterId);
         if (data) {
-          if (data.code === 0 && data.message === 'OK') {
-            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到成功${`, 获得了${data.data.awards.map(a => `「${a.resource.name}」${a.count}个`).join(',')}`}`;
+          const attendanceData = data as SklandAttendanceResponse;
+          if (attendanceData.code === 0 && attendanceData.message === 'OK') {
+            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到成功${`, 获得了${attendanceData.data.awards.map((a: SklandAward) => `「${a.resource.name}」${a.count}个`).join(',')}`}`;
             allMsg += `${msg}\n`;
             successAttendance++;
           }
           else {
-            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到失败${`, 错误消息: ${data.message}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``}`;
+            const msg = `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 签到失败${`, 错误消息: ${attendanceData.message}\n\n\`\`\`json\n${JSON.stringify(attendanceData, null, 2)}\n\`\`\``}`;
             allMsg += `${msg}\n`;
           }
         }
@@ -198,13 +241,15 @@ export const Attendent = async (cred: string, token: string) => {
           allMsg += `${msg}\n`;
         }
       }
-      catch (error) {
-        if (error.response && error.response.status === 403) {
+      catch (error: unknown) {
+        if (isStatus403Error(error)) {
           allMsg += `${(Number(character.channelMasterId) - 1) ? 'B 服' : '官服'}角色 ${getPrivacyName(character.nickName)} 今天已经签到过了\n`;
         }
         else {
-          allMsg += `签到过程中出现未知错误: ${error.message}\n`;
-          logger.error(`签到过程中出现未知错误: ${error.message}\n${error.stack}`);
+          const message = getErrorMessage(error);
+          const stack = getErrorStack(error) ?? '';
+          allMsg += `签到过程中出现未知错误: ${message}\n`;
+          logger.error(`签到过程中出现未知错误: ${message}\n${stack}`);
           return;
         }
       }
@@ -218,8 +263,9 @@ export const Attendent = async (cred: string, token: string) => {
 
     return allMsg;
 
-  } catch (error) {
-    logger.error(`每日签到 error:${error}`);
-    return error.message;
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    logger.error(`每日签到 error:${message}`);
+    return message;
   }
 };

@@ -16,7 +16,7 @@ const PROFESSION = {
   'SUPPORT': '辅助',
   'CASTER': '术师',
   'SPECIAL': '特种'
-};
+} as const;
 
 const checkFileExist = async (filePath: string) => {
   try {
@@ -30,9 +30,18 @@ const checkFileExist = async (filePath: string) => {
 export const CommandArknightsOperatorGuessSkin = async (ctx: Context, session: Session) => {
   const logger: Logger = ctx.logger('mizuki-bot-arknights');
   const skins = await loadCharacterSkins(ctx);
+  if (!skins.length) {
+    return '题库暂时为空，请稍后再试';
+  }
   const chars = await loadCharacterTable(ctx);
+  if (!chars) {
+    return '题库加载失败，请稍后再试';
+  }
   const skin = skins[Math.floor(Math.random() * skins.length)];
-  const char: ArknightsCharacter = chars[skin.charId];
+  const char: ArknightsCharacter | undefined = chars[skin.charId];
+  if (!char) {
+    return '题库数据异常，请稍后再试';
+  }
 
   const skinFileName = `${skin.portraitId}b.png`;
   const skinUrl = `${ctx.config.arknightsGameResource}/skin/${encodeURIComponent(skinFileName)}`;
@@ -72,7 +81,8 @@ export const CommandArknightsOperatorGuessSkin = async (ctx: Context, session: S
 
   const timers = [
     setTimeout(async () => {
-      await session.send(`提示：这位干员是${char.rarity + 1}星${PROFESSION[char.profession]}干员`);
+      const profession = PROFESSION[char.profession as keyof typeof PROFESSION] ?? char.profession;
+      await session.send(`提示：这位干员是${char.rarity + 1}星${profession}干员`);
     }, 45 * 1000),
     setTimeout(async () => {
       await session.send('还有30秒钟时间...>.<');

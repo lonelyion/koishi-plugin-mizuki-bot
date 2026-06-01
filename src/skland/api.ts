@@ -278,7 +278,7 @@ export const GetBinding = (cred: string, token: string) => mutex.runExclusive(as
     return res.data;
   } catch (error) {
     logger.error(`cred: ${cred} token: ${token}\nerror:${error}`);
-    return error.message;
+    return (error as Error).message || '获取绑定信息失败: 未知错误';
   }
 });
 
@@ -295,7 +295,7 @@ export const GameAttendance = (cred: string, token: string, uid: string, gameId:
     }
   });
 
-  const todayAttended = record.data.records.find((i) => {
+  const todayAttended = record.data.records.find((i: { ts: string }) => {
     const today = new Date().setHours(0, 0, 0, 0);
     return new Date(Number(i.ts) * 1000).setHours(0, 0, 0, 0) === today;
   });

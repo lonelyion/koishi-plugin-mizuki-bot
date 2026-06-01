@@ -5,7 +5,14 @@ import { Attendent } from '../skland/helper';
 
 //const logger = new Logger('mizuki-bot-skland');
 
+const resolveSessionUid = (session: Session) => session.event.user?.id ?? session.userId;
+
 export const CommandSklandLogin = async (ctx: Context, session: Session) => {
+  const uid = resolveSessionUid(session);
+  if (!uid) {
+    return '无法获取你的用户信息，请稍后再试';
+  }
+
   const { scanId, qrData } = await GenerateQRCode();
   const scanMessage = <>
     <p>请使用森空岛APP扫描二维码登录，本二维码有效时间为3分钟</p>
@@ -71,7 +78,7 @@ export const CommandSklandLogin = async (ctx: Context, session: Session) => {
     return '登录失败(Cred无效),请尝试重新发送登录指令';
   }
 
-  const user = await GetUser(ctx, session.event.user.id, session.platform);
+  const user = await GetUser(ctx, uid, session.platform);
   await ctx.database.set('mzk_user', user.id, {
     skland_cred: data.cred,
     skland_uid: data.userId,
@@ -84,7 +91,12 @@ export const CommandSklandLogin = async (ctx: Context, session: Session) => {
 };
 
 export const CommandSklandAttendent = async (ctx: Context, session: Session) => {
-  const user = await GetUser(ctx, session.event.user.id, session.platform);
+  const uid = resolveSessionUid(session);
+  if (!uid) {
+    return '无法获取你的用户信息，请稍后再试';
+  }
+
+  const user = await GetUser(ctx, uid, session.platform);
   //const uid = user.skland_uid;
   const cred = user.skland_cred;
   const token = user.skland_token;

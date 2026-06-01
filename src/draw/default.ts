@@ -72,18 +72,18 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
   const jellyRoot = path.join(imageRoot, 'jellyfish/default');
   const themeRoot = path.join(imageRoot, '/theme/default');
 
-  const help = [
+  const help: JellyfishBoxEvent[] = [
     {
       id: 'help1',
       name: '水母箱 -h',
       description: '查看水母箱指令介绍'
     },
-    !isCatch ? {
+    ...(!isCatch ? [{
       id: 'help2',
       name: '水母箱 抓水母',
       description: '抓几只水母进水母箱'
-    } : null
-  ].filter(Boolean);
+    }] : [])
+  ];
 
   // 加载字体
   FontLibrary.use('unifont', path.join(fontRoot, 'unifont-16.0.02.otf'));
@@ -104,6 +104,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
     + 16;
   const canvas = new Canvas(768, height);
   const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
 
   // 绘制背景色
   ctx.fillStyle = config.theme.backgroundColor;
@@ -124,10 +125,11 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
 
   // 绘制用户头像
   const defaultUserAvatar = path.join(themeRoot, 'default_avatar.png');
-  const avatarImage = await loadImage(session.event.user.avatar || defaultUserAvatar);
+  const avatarImage = await loadImage(session.event.user?.avatar || defaultUserAvatar);
   const avatarSize = 96;
   const avatarCanvas = new Canvas(avatarSize, avatarSize);
   const avatarCtx = avatarCanvas.getContext('2d');
+  avatarCtx.imageSmoothingQuality = 'high';
   const radius = avatarCanvas.width / 2;
   avatarCtx.beginPath();
   avatarCtx.arc(radius, radius, radius, 0, Math.PI * 2);
@@ -138,7 +140,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
 
   // 绘制用户名
   const user = await koishiCtx.database.get('mzk_user', jellyfishBox.user_id);
-  const username = user[0].nickname || session.event.user.name;
+  const username = user[0]?.nickname ?? session.event.user?.name ?? session.userId ?? '用户';
   ctx.font = '48px noto-sans-sc-bold';
   ctx.fillStyle = config.theme.name;
   ctx.textAlign = 'left';
@@ -168,6 +170,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
   const boxCanvas = new Canvas(672, 416);
   const { width: backW, height: backH } = boxCanvas;
   const boxCtx = boxCanvas.getContext('2d');
+  boxCtx.imageSmoothingQuality = 'high';
   boxCtx.fillStyle = config.theme.boxBackground;
   drawRoundRect(boxCtx, 4, 4, backW - 8, backH - 8, 8);
   const centerX = backW / 2;
@@ -190,7 +193,7 @@ export const DrawDefaultThemeBox = async (koishiCtx: Context, config: Config, se
       const jellyCanvas = await ProcessJellyfishImage(koishiCtx, jellyImagePath);
       // find the draw.size from meta
       const jellyMeta = meta.find(meta => meta.id === id);
-      const drawSize = jellyMeta.draw.size;
+      const drawSize = jellyMeta?.draw.size ?? 1;
 
       for (let j = 0; j < number; j++) {
         const w = jellyCanvas.width;
@@ -280,7 +283,11 @@ const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJ
   const newJellyImage = await ProcessJellyfishImage(koishiCtx, path.join(jellyRoot, `${newJelly.id}.png`));
 
   const meta = await koishiCtx.database.get('mzk_jellyfish_meta', { id: newJelly.id });
-  const name = meta[0].name;
+  const jellyMeta = meta[0];
+  if (!jellyMeta) {
+    return null;
+  }
+  const name = jellyMeta.name;
 
   const iconCanvas = new Canvas(128, 128);
   const iconCtx = iconCanvas.getContext('2d');
@@ -321,7 +328,7 @@ const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJ
   ctx.fillStyle = config.theme.eventDescription;
   ctx.font = '22px noto-sans-sc-regular';
   ctx.textAlign = 'left';
-  const description = meta[0].description;
+  const description = jellyMeta.description;
 
   const maxWidth = width - (24 + 128 + 16 + 24); // 右边距24px
   const lineHeight = 26;
@@ -361,8 +368,8 @@ const DrawJellyfishCardContent = async (koishiCtx: Context, config: Config, newJ
   ctx.fillText(number, 24 + 128 + 16, 72 + lines.length * lineHeight + 4);
 
   // 在数量后面绘制稀有度
-  const group = meta[0].group;
-  const groupColor = config.theme.groups[group];
+  const group = jellyMeta.group;
+  const groupColor = config.theme.groups[group as keyof typeof config.theme.groups] ?? config.theme.eventDescription;
   ctx.fillStyle = groupColor;
   ctx.font = '24px noto-sans-sc-medium';
   ctx.textAlign = 'left';
@@ -377,6 +384,9 @@ const DrawNewJellyfishCardCanvas = async (koishiCtx: Context, config: Config, ne
     return null;
   }
   const contentCanvas = await DrawJellyfishCardContent(koishiCtx, config, newJelly, jellyRoot);
+  if (!contentCanvas) {
+    return null;
+  }
   return await DrawCardCanvas(koishiCtx, config, 672, 200, '新增', contentCanvas);
 };
 
@@ -435,9 +445,9 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
   const { Canvas, loadImage, FontLibrary } = koishiCtx.skia;
 
   const meta = await koishiCtx.database.get('mzk_jellyfish_meta', {}, ['id', 'group']);
-  const flag = jellyfishBox ? true : false; // 是否是统计表
-  
-  const jellies = flag ? _.clone(jellyfishBox.jellyfish) : meta.map(meta => ({ id: meta.id, number: 0 }));
+  const flag = !!jellyfishBox; // 是否是统计表
+
+  const jellies = jellyfishBox ? _.clone(jellyfishBox.jellyfish) : meta.map(meta => ({ id: meta.id, number: 0 }));
   
   // 将jellyfish按group排序，'perfect'>'great'>'good'>'normal'>'special'
   const selectMeta = (id: string) => meta.find(meta => meta.id === id);
@@ -449,16 +459,17 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
     normal: 2,
     special: 1
   };
+  const getGroupPriority = (group?: string) => groupPriority[group as keyof typeof groupPriority] ?? 0;
   jellies.sort((a, b) => {
     const aMeta = selectMeta(a.id);
     const bMeta = selectMeta(b.id);
-    return (groupPriority[bMeta.group] || 0) - (groupPriority[aMeta.group] || 0);
+    return getGroupPriority(bMeta?.group) - getGroupPriority(aMeta?.group);
   });
 
   const jellySpeciesCount = _.size(jellies);
   const singleCol = jellySpeciesCount <= 10;
   const width = 708 * (_.ceil(jellySpeciesCount / 10)) + (singleCol ? 12 : 0);
-  const height = 84 + 24 + 24 + (162 +8) * _.min([10, jellySpeciesCount]);
+  const height = 84 + 24 + 24 + (162 +8) * Math.min(10, jellySpeciesCount);
 
   const root = path.join(koishiCtx.baseDir, 'data/mizuki-bot');
   const imageRoot = path.join(root, 'image');
@@ -493,9 +504,9 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
 
   // 标题
   let username = '';
-  if(flag) {
+  if (jellyfishBox) {
     const user = await koishiCtx.database.get('mzk_user', jellyfishBox.user_id);
-    username = user[0].nickname || session.event.user.name;
+    username = user[0]?.nickname ?? session.event.user?.name ?? session.userId ?? '用户';
   }
   
   ctx.fillStyle = config.theme.title;
@@ -510,6 +521,9 @@ export const DrawDefaultThemeStatistics = async (koishiCtx: Context, config: Con
     const col = _.floor(i / 10);
     const jelly = jellies[i];
     const jellyCanvas = await DrawJellyfishCardContent(koishiCtx, config, jelly, jellyRoot, true, flag);
+    if (!jellyCanvas) {
+      continue;
+    }
     const dx = 24 + col * (672 + 24);
     const dy = 84 + 24 + row * (162 + 8);
     ctx.drawCanvas(jellyCanvas, dx, dy);

@@ -4,7 +4,7 @@ import path from 'path';
 import { CharacterSkin, CharacterTable } from './types';
 import _ from 'lodash';
 
-let charSkins: CharacterSkin[] = null, charTable: CharacterTable = null;
+let charSkins: CharacterSkin[] | null = null, charTable: CharacterTable | null = null;
 
 export const loadCharacterSkins = async (ctx: Context) : Promise<CharacterSkin[]> => {
   const logger: Logger = ctx.logger('mizuki-bot-arknights-loader');
@@ -16,7 +16,7 @@ export const loadCharacterSkins = async (ctx: Context) : Promise<CharacterSkin[]
     const skinTable = JSON.parse(fileContent);
     charSkins = Object.values<CharacterSkin>(skinTable.charSkins).filter(skin => skin.charId.startsWith('char_'));
   }
-  return charSkins;
+  return charSkins!;
 };
 
 export const loadCharacterTable = async (ctx: Context) => {

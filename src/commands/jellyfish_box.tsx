@@ -16,11 +16,15 @@ export type JellyfishBoxEvent = {
   description: string
 }
 
+const resolveSessionUid = (session: Session) => session.event.user?.id ?? session.userId;
+
 const PromptNickname = async (ctx: Context, session: Session) => {
-  if (session.platform === 'qq' && !session.event.user.name) {
-    const user = await GetUser(ctx, session.event.user.id, session.platform);
+  const uid = resolveSessionUid(session);
+  if (session.platform === 'qq' && !session.event.user?.name && uid) {
+    const user = await GetUser(ctx, uid, session.platform);
     if(!user.nickname) {
-      session.send(`\n检测到这是你第一次认领水母箱，请先@我输入昵称，让机器人知道如何称呼你\n例如：@${session.bot.user.name} 海月离\n\n设置完成后你可以通过“/叫我 xx”来更新`);
+      const botName = session.bot.user?.name ?? '机器人';
+      session.send(`\n检测到这是你第一次认领水母箱，请先@我输入昵称，让机器人知道如何称呼你\n例如：@${botName} 海月离\n\n设置完成后你可以通过“/叫我 xx”来更新`);
       let name = await session.prompt();
       if (!name) return { success: false };
       if(name.startsWith('/叫我 ')) {
@@ -32,12 +36,13 @@ const PromptNickname = async (ctx: Context, session: Session) => {
       return { success: true, name };
     }
   }
-  return { success: true, name: session.event.user.name };  // 其他平台不需要
+  return { success: true, name: session.event.user?.name ?? session.userId ?? '用户' };  // 其他平台不需要
 };
 
 // 水母箱 指令入口
 export async function CommandJellyfishBox(config: Config, ctx: Context, session: Session) {
-  const uid = session.event.user.id;
+  const uid = resolveSessionUid(session);
+  if (!uid) return '无法获取你的用户信息，请稍后再试';
 
   const { success } = await PromptNickname(ctx, session);
   if (!success) return '输入超时或取消，已退出';
@@ -49,7 +54,7 @@ export async function CommandJellyfishBox(config: Config, ctx: Context, session:
   // const buffer = await DrawDefaultTheme(ctx, config, session, jellyfish_box, 
   //   { id: 'prts_mzk', number: 1}, 
   //   fake_events);
-  const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, null, events);
+  const buffer = await DrawDefaultThemeBox(ctx, config, session, jellyfish_box, undefined, events);
 
   return <>
     <ImageBuffer buffer={buffer}></ImageBuffer>
@@ -62,7 +67,8 @@ export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, ses
   const { success } = await PromptNickname(ctx, session);
   if (!success) return '输入超时或取消，已退出';
 
-  const uid = session.event.user.id;
+  const uid = resolveSessionUid(session);
+  if (!uid) return '无法获取你的用户信息，请稍后再试';
   const platform = session.platform;
   let jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
   const last_catch_time = jellyfish_box.last_catch_time;
@@ -155,7 +161,8 @@ export async function CommandJellyfishBoxCatch(config: Config, ctx: Context, ses
 }
 
 export const CommandJellyfishBoxStatistics = async (config: Config, ctx: Context, session: Session) => {
-  const uid = session.event.user.id;
+  const uid = resolveSessionUid(session);
+  if (!uid) return '无法获取你的用户信息，请稍后再试';
   const platform = session.platform;
   const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
   const buffer = await DrawDefaultThemeStatistics(ctx, config, session, jellyfish_box);
@@ -168,23 +175,8 @@ export const CommandJellyfishBoxCatalogue = async (config: Config, ctx: Context,
 };
 
 export const CommandJellyfishBoxSetStyle = async (config: Config, ctx: Context, session: Session, style: string) => {
+  void [config, ctx, session, style];
   return '暂不支持更换样式';
-  const uid = session.event.user.id;
-  const platform = session.platform;
-  const jellyfish_box = await GetJellyfishBox(ctx, uid, platform);
-  if(style === 'normal' || style === '默认') {
-    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
-      draw_style: 'normal'
-    });
-    return '已切换为默认样式';
-  } else if (style === 'pixel' || style === '像素') {
-    await ctx.database.set('mzk_jellyfish_box', jellyfish_box.user_id, {
-      draw_style: 'pixel'
-    });
-    return '已切换为像素样式';
-  } else {
-    return '找不到该样式，请检查名称';
-  }
 };
 
 
@@ -251,7 +243,7 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
   for (const item of jellyfish_box.jellyfish) {
     let num_to_add = 0;
     const meta = jellyfish_meta.find((m) => m.id === item.id);
-    if (meta.reproductive_rate === 0) return;
+    if (!meta || meta.reproductive_rate === 0) continue;
 
     const reproductive_rate = meta.reproductive_rate;
     let rate = reproductive_rate / 30 / 24 * item.number * refresh_number;
@@ -399,7 +391,7 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
       } else {
         result.push(...jelly_search.map(jelly => ({
           id: jelly.id,
-          name: all_jellyfish_id_to_name.get(jelly.id),
+          name: all_jellyfish_id_to_name.get(jelly.id) ?? jelly.id,
           num: jelly.number
         })));
       }
@@ -431,7 +423,7 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
 
       result.push({
         id: item_id,
-        name: all_jellyfish_id_to_name.get(item_id),
+        name: all_jellyfish_id_to_name.get(item_id) ?? item_id,
         num: item.number
       });
     }
@@ -441,7 +433,8 @@ const validateAndGenerateDropList = async (ctx: Context, drop_list: ParsedItem[]
 
 
 export async function CommandJellyfishBoxDrop(config: Config, ctx: Context, session: Session, params: string[]) {
-  const uid = session.event.user.id;
+  const uid = resolveSessionUid(session);
+  if (!uid) return '无法获取你的用户信息，请稍后再试';
   const platform = session.platform;
 
   logger.info(params);

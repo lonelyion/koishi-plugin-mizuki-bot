@@ -9,6 +9,8 @@ const ARKNIGHTS_RES_URLS = [
   'gamedata/excel/skin_table.json'
 ];
 
+const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : String(err);
+
 export const RefreshUserTokens = async (ctx: Context) => {
   //logger.info('开始刷新用户Token');
   const logger: Logger = ctx.logger('mizuki-bot-update');
@@ -52,8 +54,8 @@ export const jellyfishBoxCheck = async (ctx: Context, root: string) => {
     if (Number(data) > Number(localVersion)) {
       ctx.emit('mizuki/resource_update', data);
     }
-  } catch (err) {
-    logger.error('读取水母箱资源版本失败', err.message);
+  } catch (err: unknown) {
+    logger.error('读取水母箱资源版本失败', getErrorMessage(err));
   }
 };
 
@@ -90,7 +92,7 @@ export const jellyfishBoxUpdate = async (ctx: Context, root: string, version: st
   for (let i = 0; i < jellyfish_boxes.length; i++) {
     const jellyfish_box = jellyfish_boxes[i];
     const new_jellyfish = jellyfish_box.jellyfish.filter((jellyfish) => {
-      return meta.jellyfishes.some((meta_jellyfish) => {
+      return meta.jellyfishes.some((meta_jellyfish: { id: string }) => {
         return meta_jellyfish.id === jellyfish.id;
       });
     });
@@ -129,8 +131,8 @@ export const arknightsDataCheck = async (ctx: Context, root: string) => {
         }
       }
     }
-  } catch (err) {
-    logger.error('检查明日方舟资源版本失败', err.message);
+  } catch (err: unknown) {
+    logger.error('检查明日方舟资源版本失败', getErrorMessage(err));
   };
 };
 
@@ -145,8 +147,8 @@ export const arknightsDataUpdate = async (ctx: Context, root: string, version: s
       const localPath = path.join(root, `arknights/${url}`);
       await fs.mkdir(path.dirname(localPath), { recursive: true });
       await fs.writeFile(localPath, data);
-    } catch(err) { 
-      logger.error(`下载明日方舟数据失败: ${url}\n${err.message}`);
+    } catch(err: unknown) {
+      logger.error(`下载明日方舟数据失败: ${url}\n${getErrorMessage(err)}`);
     }
   }
   await fs.writeFile(localVersionFile, version, { encoding: 'utf-8' });

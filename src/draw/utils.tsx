@@ -13,6 +13,7 @@ export const ProcessJellyfishImage = async (ctx: Context, image_path: string) =>
 
   const canvas = new Canvas(image.width, image.height);
   const skia_ctx = canvas.getContext('2d');
+  skia_ctx.imageSmoothingQuality = 'high';
   skia_ctx.drawImage(image, 0, 0);
 
   //提取裁剪范围
@@ -31,16 +32,20 @@ export const ProcessJellyfishImage = async (ctx: Context, image_path: string) =>
     }
   }
 
-  // 裁剪后的宽高
-  const crop_width = right - left + 1;
-  const crop_height = bottom - top + 1;
+  // 裁剪后的宽高，确保可以被 2 整除
+  let crop_width = right - left + 1;
+  let crop_height = bottom - top + 1;
+
+  if (crop_width % 2 !== 0) crop_width += 1;
+  if (crop_height % 2 !== 0) crop_height += 1;
 
   // 将新的画布宽高设置为最长边的正方形，然后放到中间
-  const max = _.max([crop_width, crop_height]);
+  const max = _.max([crop_width, crop_height]) || Math.max(crop_width, crop_height);
   const dx = (max - crop_width) / 2;
   const dy = (max - crop_height) / 2;
   const crop_canvas = new Canvas(max, max);
   const crop_ctx = crop_canvas.getContext('2d');
+  crop_ctx.imageSmoothingQuality = 'high';
   crop_ctx.drawImage(image, left, top, crop_width, crop_height, dx, dy, crop_width, crop_height);
   return crop_canvas;
 };

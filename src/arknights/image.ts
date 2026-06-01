@@ -12,7 +12,7 @@ export const CropSkin = async (ctx: Context, skinFilePath: string, cropPercent: 
 
   const cropSize = Math.max(image.width, image.height) * cropPercent / 100;
 
-  const crop = (size) => {
+  const crop = (size: number) => {
     const x = random(0, image.width - size);
     const y = random(0, image.height - size);
 

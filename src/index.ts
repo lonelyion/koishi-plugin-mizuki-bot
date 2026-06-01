@@ -1,4 +1,4 @@
-import { Context, Schema } from 'koishi';
+import { Context, Schema, Session } from 'koishi';
 import * as Database from './database';
 import { 
   CommandJellyfishBox, 
@@ -95,6 +95,11 @@ export function apply(ctx: Context) {
   const root = path.join(ctx.baseDir, 'data', 'mizuki-bot');
   fs.mkdir(root, { recursive: true });
 
+  const requireSession = (session?: Session) => {
+    if (!session) return null;
+    return session;
+  };
+
 
   ctx.plugin(Database);
 
@@ -129,29 +134,41 @@ export function apply(ctx: Context) {
 
   // 指令
   ctx.command('叫我 <name:string>').action(async ({ session }, name) => {
-    return await CommandCallMe(ctx, session, name);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandCallMe(ctx, s, name);
   });
 
   ctx.command('水母箱')
     .action(async ({ session }) => {
+      const s = requireSession(session);
+      if (!s) return '无法获取会话信息，请稍后再试';
       //logger.info(`test: ${JSON.stringify(session.event)}`);
-      return await CommandJellyfishBox(ctx.config, ctx, session);
+      return await CommandJellyfishBox(ctx.config, ctx, s);
     });
 
   ctx.command('水母箱.抓水母').alias('抓水母').action(async ({ session }) => {
-    return await CommandJellyfishBoxCatch(ctx.config, ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandJellyfishBoxCatch(ctx.config, ctx, s);
   });
 
   ctx.command('水母箱.统计').alias('水母统计表').action(async ({ session }) => {
-    return await CommandJellyfishBoxStatistics(ctx.config, ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandJellyfishBoxStatistics(ctx.config, ctx, s);
   });
 
   ctx.command('水母箱.图鉴').alias('水母图鉴').action(async ({ session }) => {
-    return await CommandJellyfishBoxCatalogue(ctx.config, ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandJellyfishBoxCatalogue(ctx.config, ctx, s);
   });
 
   ctx.command('水母箱.样式 <style:string>').alias('样式').action(async ({ session }, style) => {
-    return await CommandJellyfishBoxSetStyle(ctx.config, ctx, session, style);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandJellyfishBoxSetStyle(ctx.config, ctx, s, style);
   });
 
   ctx.command('水母箱.放生 <kind:string> [...rest]').alias('放生')
@@ -159,23 +176,33 @@ export function apply(ctx: Context) {
     .example('水母箱 放生 灯塔水母 all')
     .example('水母箱 放生 normal 10')
     .action(async ({ session }, kind , ...rest) => {
-      return await CommandJellyfishBoxDrop(ctx.config, ctx, session, [kind, ...rest]);
+      const s = requireSession(session);
+      if (!s) return '无法获取会话信息，请稍后再试';
+      return await CommandJellyfishBoxDrop(ctx.config, ctx, s, [kind, ...rest]);
     });
 
   
   ctx.command('森空岛.登录').alias('登录').action(async ({ session }) => {
-    return await CommandSklandLogin(ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandSklandLogin(ctx, s);
   });
 
   ctx.command('森空岛.签到').alias('森空岛签到').action(async ({ session }) => {
-    return await CommandSklandAttendent(ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandSklandAttendent(ctx, s);
   });
 
   ctx.command('猜干员.立绘').alias('立绘猜干员').action(async ({ session }) => {
-    return await CommandArknightsOperatorGuessSkin(ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandArknightsOperatorGuessSkin(ctx, s);
   });
 
   ctx.command('测试').alias('a').action(async ({ session }) => {
-    return await CommandTest(ctx, session);
+    const s = requireSession(session);
+    if (!s) return '无法获取会话信息，请稍后再试';
+    return await CommandTest(ctx, s);
   });
 };
