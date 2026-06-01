@@ -1,6 +1,6 @@
 import { Config } from '..';
 import { Context, Logger, Session } from 'koishi';
-import { Jellyfish, JellyfishBox } from '../database';
+import { Jellyfish, JellyfishBox, JellyfishMeta } from '../database';
 import _ from 'lodash';
 import { RandomChoose, RandomChooseWithWeights } from '../utils';
 import { DrawDefaultThemeBox, DrawDefaultThemeStatistics } from '../draw/default';
@@ -207,15 +207,33 @@ const GetJellyfishInBoxCount = (jellyfish_box: JellyfishBox) => {
   return jellyfish_box.jellyfish.reduce((pre, cur) => pre + cur.number, 0);
 };
 
+const GetJellyfishReduceWeight = (group: string) => {
+  switch (group) {
+  case 'normal':
+    return 16;
+  case 'good':
+    return 8;
+  case 'great':
+    return 4;
+  case 'perfect':
+    return 2;
+  case 'special':
+    return 1;
+  default:
+    return 1;
+  }
+};
+
 const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : Promise<JellyfishBoxEvent[]> =>  {
+  const HOUR_MS = 60 * 60 * 1000;
   let refresh = false;
   let refresh_number = 0;
   const last_time = jellyfish_box.last_refresh_time;
 
-  if (last_time.getTime() + 1 * 60 * 60 * 1000 < Date.now()) {
+  if (last_time.getTime() + HOUR_MS < Date.now()) {
     refresh = true;
     // 要更新的次数，每小时一次
-    refresh_number = Math.floor(Date.now() - last_time.getTime() / (1 * 60 * 60 * 1000));
+    refresh_number = Math.floor((Date.now() - last_time.getTime()) / HOUR_MS);
     if (refresh_number > 168) refresh_number = 24; // 超过7天未抓，减少刷新次数
     else if (refresh_number > 72) refresh_number = 12;  //超过3天未抓，减少刷新次数
   }
@@ -273,11 +291,23 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
     }
   };
 
+  const breeding_candidates = jellyfish_box.jellyfish
+    .filter((item) => item.number >= 2)
+    .map((item) => ({
+      item,
+      meta: jellyfish_meta.find((m) => m.id === item.id)
+    }))
+    .filter((candidate): candidate is { item: Jellyfish; meta: JellyfishMeta } => !!candidate.meta);
+
   // 更新事件
   const event_meta = await ctx.database.get('mzk_jellyfish_event_meta', {});
-  const event_probabilities = event_meta.map((item) => item.probability);
+  const available_event_meta = breeding_candidates.length === 0
+    ? event_meta.filter((event) => event.type !== 'breed')
+    : event_meta;
+  const single_display_event_ids = new Set(['happy', 'eat']);
+  const displayed_event_ids = new Set<string>();
   // 计算概率以及次数
-  let event_probabilities_sum = event_probabilities.reduce((pre, cur) => pre + cur, 0) * refresh_number;
+  let event_probabilities_sum = available_event_meta.map((item) => item.probability).reduce((pre, cur) => pre + cur, 0) * refresh_number;
   let event_number = 0;
   if(event_probabilities_sum > 1) {
     event_number += Math.floor(event_probabilities_sum);
@@ -289,12 +319,58 @@ const CalculateBoxEvents = async (ctx: Context, jellyfish_box: JellyfishBox) : P
   
   if (event_number > 0) {
     for (let i = 0; i < event_number; i++) {
-      const event = RandomChoose(event_meta);
+      const event = RandomChoose(available_event_meta);
+      if (single_display_event_ids.has(event.id)) {
+        if (displayed_event_ids.has(event.id)) {
+          continue;
+        }
+        displayed_event_ids.add(event.id);
+      }
       // TODO: 各种事件及其随机处理
       switch (event.type) {
+      case 'breed': {
+        const candidate = RandomChoose(breeding_candidates);
+        candidate.item.number += 1;
+        events.push({
+          'id': event.id,
+          'name': event.name,
+          'description': `两只${candidate.meta.name}繁殖出了一只新的${candidate.meta.name}`
+        });
+        continue;
+      }
       case 'reduce':
-        // 水母减少的事件
-        break;
+      {
+        const reduce_candidates = jellyfish_box.jellyfish
+          .map((item) => ({
+            item,
+            meta: jellyfish_meta.find((m) => m.id === item.id)
+          }))
+          .filter((candidate): candidate is { item: Jellyfish; meta: JellyfishMeta } => !!candidate.meta && candidate.item.number > 0);
+
+        if (reduce_candidates.length === 0) {
+          continue;
+        }
+
+        const selected = RandomChooseWithWeights(
+          reduce_candidates.map((candidate) => candidate.item.number * GetJellyfishReduceWeight(candidate.meta.group)),
+          reduce_candidates
+        );
+
+        selected.item.number -= 1;
+        if (selected.item.number <= 0) {
+          const index = jellyfish_box.jellyfish.findIndex((item) => item.id === selected.item.id);
+          if (index !== -1) {
+            jellyfish_box.jellyfish.splice(index, 1);
+          }
+        }
+
+        events.push({
+          'id': event.id,
+          'name': event.name,
+          'description': `${selected.meta.name}遇到旋涡被冲走了`
+        });
+        continue;
+      }
       case 'add':
         // 水母增加的事件
         break;
