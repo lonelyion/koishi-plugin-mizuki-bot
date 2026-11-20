@@ -1,208 +1,80 @@
-import { Context, Schema, Session } from 'koishi';
-import * as Database from './database';
-import { 
-  CommandJellyfishBox, 
-  CommandJellyfishBoxCatch, 
-  CommandJellyfishBoxDrop,
-  CommandJellyfishBoxStatistics,
-  CommandJellyfishBoxCatalogue,
-  CommandJellyfishBoxSetStyle
-} 
-  from './commands/jellyfish_box';
-import { CommandTest } from './commands/testCommand';
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
 import * as path from 'path';
-//import axios from 'axios';
-import { CommandCallMe } from './commands/callme';
-import { CommandSklandAttendent, CommandSklandLogin } from './commands/skland';
-import {} from 'koishi-plugin-cron-fix';
-import { jellyfishBoxUpdate, jellyfishBoxCheck, arknightsDataUpdate, arknightsDataCheck, RefreshUserTokens } from './update';
-import { CommandArknightsOperatorGuessSkin } from './commands/arknights';
-//import _ from 'lodash';
+import { Context } from 'koishi';
+// 仅引入类型：为 ctx.cron 提供声明合并（实际 cron 服务由宿主注入）
+import type {} from 'koishi-plugin-cron-fix';
+import type {} from '@ltxhhz/koishi-plugin-skia-canvas';
+import { registerArknightsCommands } from './arknights';
+import { Config } from './config';
+import * as Database from './database';
+import { registerJellyfishCommands } from './jellyfish';
+import {
+  arknightsDataCheck,
+  arknightsDataUpdate,
+  jellyfishBoxCheck,
+  jellyfishBoxUpdate
+} from './resources/updater';
+import { registerUserCommands } from './utils/user';
+
 export const name = 'mizuki-bot';
 
 export const inject = {
-  required: ['database', 'cron', 'skia']
-  //optional: ['assets'],
+  required: ['database', 'cron', 'skia', 'http']
 };
+
+export { Config } from './config';
+export type { ThemeConfig } from './config';
+export type {
+  Decoration,
+  DrawStyle,
+  EventMeta,
+  Jellyfish,
+  JellyfishBox,
+  JellyfishMeta,
+  MzkDailyState,
+  MzkUser,
+  RarityGroup
+} from './database';
 
 declare module 'koishi' {
   interface Events {
-    'mizuki/resource_update'(...args: string[]): void,
-    'mizuki/arknights_update'(...args: string[]): void
+    'mizuki/resource_update'(version: string): void;
+    'mizuki/arknights_update'(version: string): void;
   }
-};
+}
 
-export interface Config {
-  theme: {
-    backgroundColor: string,
-    backgroundTextColor: string,
-    boxBackground: string,
-    boxOutline: string,
-    date: string,
-    name: string,
-    cardBackground: string,
-    jellyName: string,
-    jellyIconBackground: string,
-    jellyIconBorder: string,
-    title: string,
-    eventTitle: string,
-    eventDescription: string,
-    groups: {
-      normal: string,
-      good: string,
-      great: string,
-      perfect: string,
-      special: string
-    }
-  },
-  remote: string,
-  arknightsGameResource: string,
-  test_account: string
-};
-
-export const Config: Schema<Config> = Schema.object({
-  remote: Schema.string().role('link').default('https://bot.cdn.mizuki.ink').description('CDN地址'),
-  arknightsGameResource: Schema.string().role('link').default('https://gh.miriko.top/https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/refs/heads/main').description('明日方舟游戏资源地址'),
-  test_account: Schema.string().default('Alice').description('测试账号的userId'),
-
-  theme: Schema.object({
-    backgroundColor: Schema.string().role('color').default('#EAEBEE').description('背景颜色'),
-    backgroundTextColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),
-    boxBackground: Schema.string().role('color').default('#1b4771').description('水母箱背景颜色'),
-    boxOutline: Schema.string().role('color').default('#002237').description('水母箱边框颜色'),
-    date: Schema.string().role('color').default('#363739').description('日期颜色'),
-    name: Schema.string().role('color').default('#2E82EE').description('用户名颜色'),
-    cardBackground: Schema.string().role('color').default('#FFFFFF').description('卡片背景颜色'),
-    jellyName: Schema.string().role('color').default('#2E82EE').description('水母名称颜色'),
-    jellyIconBackground: Schema.string().role('color').default('#def8ff').description('水母图标背景颜色'),
-    jellyIconBorder: Schema.string().role('color').default('#76c9ec').description('水母图标边框颜色'),
-    title: Schema.string().role('color').default('#2E82EE').description('标题颜色'),
-    eventTitle: Schema.string().role('color').default('#000000').description('事件标题颜色'),
-    eventDescription: Schema.string().role('color').default('#333333').description('事件描述颜色'),
-    groups: Schema.object({
-      normal: Schema.string().role('color').default('#eace5f').description('NORMAL'),
-      good: Schema.string().role('color').default('#46eca4').description('GOOD'),
-      great: Schema.string().role('color').default('#f15fb2').description('GREAT'),
-      perfect: Schema.string().role('color').default('#935ff1').description('PERFECT'),
-      special: Schema.string().role('color').default('#5a96ef').description('SPECIAL')
-    }).description('水母稀有度颜色组')
-  }).description('默认主题')
-});
-
-export function apply(ctx: Context) {
-  // write your plugin here
+export function apply(ctx: Context, config: Config) {
+  const logger = ctx.logger('mizuki-bot');
   const root = path.join(ctx.baseDir, 'data', 'mizuki-bot');
-  fs.mkdir(root, { recursive: true });
+  fs.mkdirSync(root, { recursive: true });
 
-  const requireSession = (session?: Session) => {
-    if (!session) return null;
-    return session;
+  const reportError = (label: string) => (err: unknown) => {
+    logger.error(`${label}失败`, err instanceof Error ? err.message : String(err));
   };
 
+  const checkAllResources = () => {
+    jellyfishBoxCheck(ctx, config, root).catch(reportError('检查水母箱资源'));
+    arknightsDataCheck(ctx, config, root).catch(reportError('检查明日方舟资源'));
+  };
 
+  // 数据库模型
   ctx.plugin(Database);
 
+  // 资源更新事件与定时检查
+  ctx.on('ready', checkAllResources);
 
-  // 事件
-  ctx.on('ready',  () => {
-    jellyfishBoxCheck(ctx, root);
-    arknightsDataCheck(ctx, root);
+  ctx.on('mizuki/resource_update', (version: string) => {
+    jellyfishBoxUpdate(ctx, config, root, version).catch(reportError('更新水母箱资源'));
   });
 
-  ctx.on('mizuki/resource_update', async (version: string) => {
-    jellyfishBoxUpdate(ctx, root, version);
+  ctx.on('mizuki/arknights_update', (version: string) => {
+    arknightsDataUpdate(ctx, config, root, version).catch(reportError('更新明日方舟数据'));
   });
 
-  ctx.on('mizuki/arknights_update', async (version: string) => {
-    arknightsDataUpdate(ctx, root, version);
-  });
+  ctx.cron('5 */2 * * *', checkAllResources);
 
-  ctx.on('message', async (session) => {
-    ctx.logger('mizuki-bot').debug(`用户: ${session.userId} 发送了消息: ${session.content}`);
-  });
-
-  // 计划任务
-  ctx.cron('*/5 * * * *', async () => {
-    await RefreshUserTokens(ctx);
-  });
-
-  ctx.cron('5 */2 * * *', async () => {
-    jellyfishBoxCheck(ctx, root);
-    arknightsDataCheck(ctx, root);
-  });
-
-  // 指令
-  ctx.command('叫我 <name:string>').action(async ({ session }, name) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandCallMe(ctx, s, name);
-  });
-
-  ctx.command('水母箱')
-    .action(async ({ session }) => {
-      const s = requireSession(session);
-      if (!s) return '无法获取会话信息，请稍后再试';
-      //logger.info(`test: ${JSON.stringify(session.event)}`);
-      return await CommandJellyfishBox(ctx.config, ctx, s);
-    });
-
-  ctx.command('水母箱.抓水母').alias('抓水母').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandJellyfishBoxCatch(ctx.config, ctx, s);
-  });
-
-  ctx.command('水母箱.统计').alias('水母统计表').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandJellyfishBoxStatistics(ctx.config, ctx, s);
-  });
-
-  ctx.command('水母箱.图鉴').alias('水母图鉴').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandJellyfishBoxCatalogue(ctx.config, ctx, s);
-  });
-
-  ctx.command('水母箱.样式 <style:string>').alias('样式').action(async ({ session }, style) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandJellyfishBoxSetStyle(ctx.config, ctx, s, style);
-  });
-
-  ctx.command('水母箱.放生 <kind:string> [...rest]').alias('放生')
-    .usage('请添加水母名称以及数量')
-    .example('水母箱 放生 灯塔水母 all')
-    .example('水母箱 放生 normal 10')
-    .action(async ({ session }, kind , ...rest) => {
-      const s = requireSession(session);
-      if (!s) return '无法获取会话信息，请稍后再试';
-      return await CommandJellyfishBoxDrop(ctx.config, ctx, s, [kind, ...rest]);
-    });
-
-  
-  ctx.command('森空岛.登录').alias('登录').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandSklandLogin(ctx, s);
-  });
-
-  ctx.command('森空岛.签到').alias('森空岛签到').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandSklandAttendent(ctx, s);
-  });
-
-  ctx.command('猜干员.立绘').alias('立绘猜干员').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandArknightsOperatorGuessSkin(ctx, s);
-  });
-
-  ctx.command('测试').alias('a').action(async ({ session }) => {
-    const s = requireSession(session);
-    if (!s) return '无法获取会话信息，请稍后再试';
-    return await CommandTest(ctx, s);
-  });
-};
+  // 注册各功能指令
+  registerUserCommands(ctx);
+  registerJellyfishCommands(ctx, config);
+  registerArknightsCommands(ctx, config);
+}

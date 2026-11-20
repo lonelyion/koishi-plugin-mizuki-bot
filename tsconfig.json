@@ -4,21 +4,17 @@
     "outDir": "lib",
     "target": "es2022",
     "module": "esnext",
+    "strict": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "composite": true,
-    "incremental": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "jsxImportSource": "@satorijs/element",
     "types": [
-      "node",
-      "yml-register/types"
+      "node"
     ]
   },
   "include": [
     "src"
-, "utils.ts"  ]
+  ]
 }
