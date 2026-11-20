@@ -23,11 +23,11 @@ const ROW_GAP = 7;
 const FOOTER_HEIGHT = 76;
 
 const COLUMNS = [
-  { label: '干员', en: 'OPERATOR', width: 164 },
+  { label: '干员', en: 'OPERATOR', width: 176 },
   { label: '星级', en: 'RARITY', width: 96 },
   { label: '职业', en: 'CLASS', width: 104 },
-  { label: '分支', en: 'BRANCH', width: 148 },
-  { label: '阵营', en: 'FACTION', width: 143 }
+  { label: '位置', en: 'POSITION', width: 124 },
+  { label: '阵营', en: 'FACTION', width: 155 }
 ] as const;
 
 const COL_GAP = 5;
@@ -161,7 +161,7 @@ export async function renderWordleBoard(
 
   const legends: ReadonlyArray<readonly [string, string]> = [
     [AK_PALETTE.greenBright, '完全吻合'],
-    [AK_PALETTE.amberBright, '星级差1 / 同职业不同分支 / 关联阵营'],
+    [AK_PALETTE.amberBright, '星级差1 / 关联阵营'],
     ['#4a5360', '不符']
   ];
   let lx = PADDING_X;
@@ -259,7 +259,7 @@ export async function renderWordleBoard(
       { text: guess.operator.name, match: guess.isCorrect ? 'exact' : 'miss', isName: true },
       { text: guess.rarity.text, match: guess.rarity.match },
       { text: guess.profession.text, match: guess.profession.match },
-      { text: guess.subProfession.text, match: guess.subProfession.match },
+      { text: guess.position.text, match: guess.position.match },
       { text: guess.faction.text, match: guess.faction.match }
     ];
 

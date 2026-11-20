@@ -147,23 +147,24 @@ function registerMockServices(app: App) {
 }
 
 describe('Arknights Wordle logic', () => {
-  it('compares rarity direction, branch/profession, related factions, and partial tags accurately', () => {
+  it('compares rarity direction, profession/position, and related factions accurately', () => {
     const mizuki = sampleOperators[0];
     const exusiai = sampleOperators[1];
     const nian = sampleOperators[3];
     const manticore = sampleOperators[4];
 
-    // 狮蝎(5★ 特种·伏击客, 萨尔贡) vs 水月(6★ 特种·伏击客, 东)
+    // 狮蝎(5★ 特种 · 近战位, 萨尔贡) vs 水月(6★ 特种 · 近战位, 东)
     const cmp1 = compareOperatorGuess(manticore, mizuki);
     expect(cmp1.isCorrect).toBe(false);
     expect(cmp1.rarity.match).toBe('close');
     expect(cmp1.rarity.direction).toBe('up');
     expect(cmp1.profession.match).toBe('exact');
-    expect(cmp1.subProfession.match).toBe('exact');
+    expect(cmp1.position.match).toBe('exact');
     expect(cmp1.faction.match).toBe('miss');
 
-    // 能天使(炎-龙门) vs 年(炎) -> 关联文化圈判定为 close
+    // 能天使(远程位, 炎-龙门) vs 年(近战位, 炎) -> 关联文化圈判定为 close，位置为 miss
     const cmp2 = compareOperatorGuess(exusiai, nian);
+    expect(cmp2.position.match).toBe('miss');
     expect(cmp2.faction.match).toBe('close');
 
     // 猜中本人

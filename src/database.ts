@@ -7,7 +7,21 @@ declare module 'koishi' {
     mzk_jellyfish_meta: JellyfishMeta;
     mzk_jellyfish_event_meta: EventMeta;
     mzk_daily_state: MzkDailyState;
+    mzk_group: MzkGroup;
   }
+}
+
+export interface MzkGroup {
+  id: number;
+  platform: string;
+  self_id: string;
+  guild_id: string;
+  channel_id: string;
+  active: boolean;
+  proactive_allowed: boolean;
+  muted: boolean;
+  last_notified_version: string;
+  last_active_at: Date;
 }
 
 export interface MzkDailyState {
@@ -144,5 +158,22 @@ export function apply(ctx: Context) {
     foreign: {
       user_id: ['mzk_user', 'id']
     }
+  });
+
+  ctx.model.extend('mzk_group', {
+    id: 'unsigned',
+    platform: 'string',
+    self_id: 'string',
+    guild_id: 'string',
+    channel_id: 'string',
+    active: { type: 'boolean', initial: true },
+    proactive_allowed: { type: 'boolean', initial: true },
+    muted: { type: 'boolean', initial: false },
+    last_notified_version: { type: 'string', initial: '' },
+    last_active_at: 'timestamp'
+  }, {
+    primary: 'id',
+    autoInc: true,
+    unique: [['platform', 'self_id', 'channel_id']]
   });
 }

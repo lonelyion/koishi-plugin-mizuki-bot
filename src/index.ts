@@ -4,6 +4,7 @@ import { Context } from 'koishi';
 // 仅引入类型：为 ctx.cron 提供声明合并（实际 cron 服务由宿主注入）
 import type {} from 'koishi-plugin-cron-fix';
 import type {} from '@ltxhhz/koishi-plugin-skia-canvas';
+import { registerAnnouncementCommands } from './announcement';
 import { registerArknightsCommands } from './arknights';
 import { Config } from './config';
 import * as Database from './database';
@@ -25,6 +26,14 @@ export const inject = {
 export { Config } from './config';
 export type { ThemeConfig } from './config';
 export type {
+  BroadcastOptions,
+  BroadcastPlan,
+  BroadcastResult,
+  ChangelogData,
+  ChangelogSection,
+  GroupStatusSummary
+} from './announcement/types';
+export type {
   Decoration,
   DrawStyle,
   EventMeta,
@@ -32,6 +41,7 @@ export type {
   JellyfishBox,
   JellyfishMeta,
   MzkDailyState,
+  MzkGroup,
   MzkUser,
   RarityGroup
 } from './database';
@@ -77,4 +87,5 @@ export function apply(ctx: Context, config: Config) {
   registerUserCommands(ctx);
   registerJellyfishCommands(ctx, config);
   registerArknightsCommands(ctx, config);
+  registerAnnouncementCommands(ctx, config);
 }

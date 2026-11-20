@@ -15,7 +15,7 @@ interface QQRawPayload {
 }
 
 export function resolveSessionUserId(session: Session): string | undefined {
-  return session.event.user?.id || session.userId || undefined;
+  return session.event?.user?.id || session.userId || undefined;
 }
 
 /**

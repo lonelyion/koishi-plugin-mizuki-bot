@@ -28,6 +28,9 @@ export interface Config {
   localResourceDir: string;
   arknightsGameResource: string;
   test_account: string;
+  admin_users: string[];
+  changelogPath: string;
+  broadcast_interval_ms: number;
   theme: ThemeConfig;
 }
 
@@ -46,6 +49,17 @@ export const Config: Schema<Config> = Schema.object({
   test_account: Schema.string()
     .default('Alice')
     .description('测试账号的 userId（免抓水母冷却与强制刷新事件）'),
+  admin_users: Schema.array(Schema.string())
+    .default([])
+    .description('管理员 userId 列表（拥有推送更新公告权限；未填写时也兼容 Koishi 3 级以上权限及 test_account）'),
+  changelogPath: Schema.string()
+    .default('data/mizuki-bot/data/changelog.json')
+    .description('更新日志 JSON 文件路径（相对 Koishi 根目录或绝对路径，可直接编辑后预览/推送）'),
+  broadcast_interval_ms: Schema.number()
+    .min(200)
+    .max(30_000)
+    .default(2000)
+    .description('全群推送更新日志的发送间隔（毫秒），默认 2000ms 以避免触发 QQ 限流'),
   theme: Schema.object({
     backgroundColor: Schema.string().role('color').default('#EAEBEE').description('背景颜色'),
     backgroundTextColor: Schema.string().role('color').default('#D5DADF').description('背景文字颜色'),

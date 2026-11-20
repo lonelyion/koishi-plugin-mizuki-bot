@@ -10,7 +10,7 @@ export interface WordleGuessComparison {
   isCorrect: boolean;
   rarity: { match: CellMatch; direction: RarityDirection; text: string };
   profession: { match: CellMatch; text: string };
-  subProfession: { match: CellMatch; text: string };
+  position: { match: CellMatch; text: string };
   faction: { match: CellMatch; text: string };
 }
 
@@ -65,13 +65,9 @@ export function compareOperatorGuess(
       : 'miss';
   const arrow = rarityDirection === 'up' ? ' ↑' : rarityDirection === 'down' ? ' ↓' : '';
 
-  // 2. 职业与分支
+  // 2. 职业与部署位置
   const profMatch: CellMatch = guess.profession === target.profession ? 'exact' : 'miss';
-  const subProfMatch: CellMatch = guess.subProfessionId === target.subProfessionId
-    ? 'exact'
-    : guess.profession === target.profession
-      ? 'close'
-      : 'miss';
+  const posMatch: CellMatch = guess.position === target.position ? 'exact' : 'miss';
 
   // 3. 阵营
   const factionMatch: CellMatch = guess.factionId === target.factionId
@@ -85,7 +81,7 @@ export function compareOperatorGuess(
     isCorrect,
     rarity: { match: rarityMatch, direction: rarityDirection, text: `${guess.rarity}★${arrow}` },
     profession: { match: profMatch, text: guess.professionName },
-    subProfession: { match: subProfMatch, text: guess.subProfessionName },
+    position: { match: posMatch, text: guess.positionName },
     faction: { match: factionMatch, text: guess.factionName }
   };
 }
@@ -109,7 +105,7 @@ export function findOperatorByQuery(
 }
 
 export function formatOperatorSummary(op: OperatorProfile): string {
-  return `${op.name}（${op.rarity}★ ${op.professionName}·${op.subProfessionName} | ${op.factionName}）`;
+  return `${op.name}（${op.rarity}★ ${op.professionName} · ${op.positionName} | ${op.factionName}）`;
 }
 
 export function buildWordleHint(target: OperatorProfile): string {
