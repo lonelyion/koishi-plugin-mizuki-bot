@@ -4,6 +4,10 @@
 
 [![npm](https://img.shields.io/npm/v/koishi-plugin-mizuki-bot?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-mizuki-bot)
 
+## QQ官方机器人
+
+点击链接了解机器人详情或添加到群聊【[水月Mizuki](https://bot.q.qq.com/s/4rlx30zdu?id=102091844)】
+
 ## 功能
 
 ### 🪼 水母箱 & 深海厨房
@@ -33,6 +37,4 @@ npm test           # 运行 Vitest 单元测试与集成测试
 npm run dev        # 在 ../koishi-app 中启动开发调试环境
 ```
 
-## QQ官方机器人
 
-点击链接了解机器人详情【[水月Mizuki](https://bot.q.qq.com/s/4rlx30zdu?id=102091844)】
